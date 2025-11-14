@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Attendance Reports</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .stat-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        /* Specific sizing for icons in navigation/buttons (Lucide inserts SVG here) */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } /* 20x20 for nav */
+        .stat-icon { width: 1.5rem; height: 1.5rem; } /* 24x24 for stats */
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* Calendar Grid */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px; /* Small gap between cells */
+        }
+        .calendar-day {
+            padding: 8px;
+            height: 60px; /* fixed height for consistent look */
+            text-align: center;
+            font-size: 0.8rem;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid #e5e7eb; /* Subtle border */
+            border-radius: 4px;
+            transition: background-color 0.1s;
+        }
+        .calendar-day:hover {
+            background-color: #f3f4f6;
+        }
+        .day-label {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .present-status { background-color: #10b981; } /* Emerald-500 */
+        .late-status { background-color: #f59e0b; } /* Amber-500 */
+        .absent-status { background-color: #ef4444; } /* Red-500 */
+
+        /* Mobile Sidebar Positioning styles (copied from reference) */
+        #sidebar {
+            --sidebar-width: 16rem; /* 256px for w-64 */
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed; 
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 40;
+        }
+        #main-content {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #main-content {
+            transform: translateX(var(--sidebar-width));
+            overflow: hidden; 
+        }
+        .sidebar-open body {
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative;
+                transform: translateX(0);
+                flex-shrink: 0;
+            }
+            #main-content {
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
+        <i data-lucide="menu" class="lucide-icon"></i>
+    </button>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+            <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="home_overview.html" class="nav-item">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Home Overview
+            </a>
+            <a href="scan_attendance.html" class="nav-item">
+                <i data-lucide="scan-line" class="lucide-icon mr-3"></i>
+                Scan Attendance
+            </a>
+            <a href="my_classes.html" class="nav-item">
+                <i data-lucide="book-open-text" class="lucide-icon mr-3"></i>
+                My Classes
+            </a>
+            <a href="class_attendance_reports.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="file-text" class="lucide-icon mr-3"></i>
+                Class Attendance Reports
+            </a>
+            <a href="notifications_alerts.html" class="nav-item">
+                <i data-lucide="bell" class="lucide-icon mr-3"></i>
+                Notifications & Alerts
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="mb-6 pb-4 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
+                    <i data-lucide="bar-chart-3" class="w-8 h-8 mr-2 text-blue-600"></i>
+                    Class Attendance Reports
+                </h1>
+                <p class="text-gray-500 mt-1">Detailed attendance data for specific classes and sections.</p>
+            </div>
+            
+            <div class="mt-4 sm:mt-0 flex items-center gap-3">
+                <select id="class-selector" class="block w-full sm:w-auto px-4 py-2 border border-gray-300 bg-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-medium">
+                    <option value="CS101">CS 101 - Algorithm Design (A)</option>
+                    <option value="MATH205" selected>MATH 205 - Calculus III (B)</option>
+                    <option value="ENG101">ENG 101 - Technical Writing (C)</option>
+                </select>
+                <button id="export-report-btn" class="flex items-center justify-center px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-150 shadow-md whitespace-nowrap">
+                    <i data-lucide="download" class="lucide-icon mr-2"></i>
+                    Export Report
+                </button>
+            </div>
+        </header>
+
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+            
+            <div class="stat-card p-5 bg-white rounded-xl shadow-lg border-b-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase">Total Present</p>
+                        <p class="text-3xl font-bold text-gray-900" id="report-present-count">318</p> 
+                        <span class="text-xs text-green-600 font-semibold">89.5% Attendance</span>
+                    </div>
+                    <div class="p-3 bg-green-100 rounded-full">
+                        <i data-lucide="check-circle" class="stat-icon text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-5 bg-white rounded-xl shadow-lg border-b-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase">Total Absent</p>
+                        <p class="text-3xl font-bold text-gray-900" id="report-absent-count">25</p>
+                        <span class="text-xs text-red-600 font-semibold">7.0% Absence Rate</span>
+                    </div>
+                    <div class="p-3 bg-red-100 rounded-full">
+                        <i data-lucide="x-circle" class="stat-icon text-red-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-5 bg-white rounded-xl shadow-lg border-b-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase">Total Late</p>
+                        <p class="text-3xl font-bold text-gray-900" id="report-late-count">12</p>
+                        <span class="text-xs text-yellow-600 font-semibold">3.5% Late Marks</span>
+                    </div>
+                    <div class="p-3 bg-yellow-100 rounded-full">
+                        <i data-lucide="clock" class="stat-icon text-yellow-600"></i>
+                    </div>
+                </div>
+            </div>
+            
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i data-lucide="calendar" class="lucide-icon mr-2 text-blue-600"></i>
+                        Monthly Attendance Calendar: <span class="ml-2 text-blue-600" id="calendar-month-year">November 2025</span>
+                    </h2>
+                    <div class="flex items-center space-x-2">
+                        <button class="p-1.5 rounded-full hover:bg-gray-100 text-gray-600">
+                            <i data-lucide="chevron-left" class="lucide-icon"></i>
+                        </button>
+                        <button class="p-1.5 rounded-full hover:bg-gray-100 text-gray-600">
+                            <i data-lucide="chevron-right" class="lucide-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="calendar-grid text-gray-700 font-semibold mb-2">
+                    <div class="text-center text-sm p-1">Sun</div>
+                    <div class="text-center text-sm p-1">Mon</div>
+                    <div class="text-center text-sm p-1">Tue</div>
+                    <div class="text-center text-sm p-1">Wed</div>
+                    <div class="text-center text-sm p-1">Thu</div>
+                    <div class="text-center text-sm p-1">Fri</div>
+                    <div class="text-center text-sm p-1">Sat</div>
+                </div>
+
+                <div class="calendar-grid text-gray-600" id="calendar-days">
+                    <div class="calendar-day bg-gray-100 text-gray-400 border-none"></div> 
+
+                    <div class="calendar-day text-gray-400 bg-gray-100 border-none">1</div> <div class="calendar-day text-gray-400 bg-gray-100 border-none">2</div> <div class="calendar-day bg-white" data-date="2025-11-03">
+                        <span class="day-label text-gray-900">3</span>
+                        <div class="mt-4 flex flex-col justify-center items-center text-center">
+                            <p class="text-xs font-bold text-green-600">38/40</p>
+                            <div class="flex mt-1">
+                                <span class="status-dot present-status" title="Present: 38"></span>
+                                <span class="status-dot absent-status" title="Absent: 2"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day bg-white" data-date="2025-11-04">
+                        <span class="day-label text-gray-900">4</span>
+                        <div class="mt-4 flex flex-col justify-center items-center text-center">
+                            <p class="text-xs font-bold text-green-600">35/40</p>
+                            <div class="flex mt-1">
+                                <span class="status-dot present-status" title="Present: 35"></span>
+                                <span class="status-dot late-status" title="Late: 4"></span>
+                                <span class="status-dot absent-status" title="Absent: 1"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day bg-white border-blue-500 border-2 shadow-inner" data-date="2025-11-05"> <span class="day-label text-blue-600">5</span>
+                         <div class="mt-4 flex flex-col justify-center items-center text-center">
+                            <p class="text-xs font-bold text-green-600">40/40</p>
+                            <div class="flex mt-1">
+                                <span class="status-dot present-status" title="Present: 40"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day bg-white" data-date="2025-11-06">
+                        <span class="day-label text-gray-900">6</span>
+                         <div class="mt-4 flex flex-col justify-center items-center text-center">
+                            <p class="text-xs font-bold text-green-600">37/40</p>
+                            <div class="flex mt-1">
+                                <span class="status-dot present-status" title="Present: 37"></span>
+                                <span class="status-dot absent-status" title="Absent: 3"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day bg-white" data-date="2025-11-07">
+                        <span class="day-label text-gray-900">7</span>
+                         <div class="mt-4 flex flex-col justify-center items-center text-center">
+                            <p class="text-xs font-bold text-yellow-600">39/40</p>
+                            <div class="flex mt-1">
+                                <span class="status-dot present-status" title="Present: 39"></span>
+                                <span class="status-dot late-status" title="Late: 1"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="calendar-day bg-gray-100 text-gray-400 border-none">8</div> <div class="calendar-day bg-gray-100 text-gray-400 border-none">9</div> <div class="calendar-day bg-white" data-date="2025-11-10"><span class="day-label text-gray-900">10</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs font-bold text-green-600">39/40</p><div class="flex mt-1"><span class="status-dot present-status" title="Present: 39"></span><span class="status-dot absent-status" title="Absent: 1"></span></div></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-11"><span class="day-label text-gray-900">11</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs font-bold text-green-600">40/40</p><div class="flex mt-1"><span class="status-dot present-status" title="Present: 40"></span></div></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-12"><span class="day-label text-gray-900">12</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs font-bold text-green-600">38/40</p><div class="flex mt-1"><span class="status-dot present-status" title="Present: 38"></span><span class="status-dot absent-status" title="Absent: 2"></span></div></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-13"><span class="day-label text-gray-900">13</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs font-bold text-yellow-600">35/40</p><div class="flex mt-1"><span class="status-dot present-status" title="Present: 35"></span><span class="status-dot late-status" title="Late: 5"></span></div></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-14"><span class="day-label text-gray-900">14</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs font-bold text-red-600">30/40</p><div class="flex mt-1"><span class="status-dot present-status" title="Present: 30"></span><span class="status-dot absent-status" title="Absent: 10"></span></div></div></div>
+                    <div class="calendar-day bg-gray-100 text-gray-400 border-none">15</div> <div class="calendar-day bg-gray-100 text-gray-400 border-none">16</div> <div class="calendar-day bg-white" data-date="2025-11-17"><span class="day-label text-gray-900">17</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-18"><span class="day-label text-gray-900">18</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-19"><span class="day-label text-gray-900">19</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-20"><span class="day-label text-gray-900">20</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-21"><span class="day-label text-gray-900">21</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-gray-100 text-gray-400 border-none">22</div> <div class="calendar-day bg-gray-100 text-gray-400 border-none">23</div> <div class="calendar-day bg-white" data-date="2025-11-24"><span class="day-label text-gray-900">24</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-25"><span class="day-label text-gray-900">25</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-26"><span class="day-label text-gray-900">26</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-27"><span class="day-label text-gray-900">27</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-white" data-date="2025-11-28"><span class="day-label text-gray-900">28</span><div class="mt-4 flex flex-col justify-center items-center text-center"><p class="text-xs text-gray-400">TBA</p></div></div>
+                    <div class="calendar-day bg-gray-100 text-gray-400 border-none">29</div> <div class="calendar-day bg-gray-100 text-gray-400 border-none">30</div> </div>
+
+                <div class="mt-6 flex justify-center text-sm">
+                    <div class="flex items-center mr-4"><span class="status-dot present-status"></span> Present/On-time</div>
+                    <div class="flex items-center mr-4"><span class="status-dot late-status"></span> Late/Tardy</div>
+                    <div class="flex items-center"><span class="status-dot absent-status"></span> Absent</div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-xl">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                    <i data-lucide="list-checks" class="lucide-icon mr-2 text-blue-600"></i>
+                    Daily Attendance Report: <span class="ml-2 text-blue-600" id="daily-report-date">Nov 5, 2025</span>
+                </h2>
+                
+                <div class="overflow-y-auto max-h-96">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="daily-attendance-list">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">A. Bautista</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Present</span>
+                                </td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center text-gray-500">07:58 AM</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">B. Cruz</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Present</span>
+                                </td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center text-gray-500">07:55 AM</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">C. Garcia (LATE)</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Late</span>
+                                </td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center text-yellow-500">08:05 AM</td>
+                            </tr>
+                             <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">D. Rodriguez (ABSENT)</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Absent</span>
+                                </td>
+                                <td class="px-3 py-2 whitespace-nowrap text-sm text-center text-gray-400">--</td>
+                            </tr>
+                            <tr><td colspan="3" class="text-center text-xs py-2 text-gray-400">... 36 more students ...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </section>
+
+    </div> 
+    
+    <script type="module">
+        // Ensure Lucide icons are rendered after the script loads
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View (Copied from reference)
+        // ------------------------------------------------------------------------------------------------
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        const body = document.body;
+
+        menuButton.addEventListener('click', () => {
+            body.classList.toggle('sidebar-open');
+        });
+
+        // ------------------------------------------------------------------------------------------------
+        // Simulation/Placeholder Logic for Class Reports Page
+        // ------------------------------------------------------------------------------------------------
+        const classSelector = document.getElementById('class-selector');
+        const dailyReportDateEl = document.getElementById('daily-report-date');
+        const calendarDaysEl = document.getElementById('calendar-days');
+        
+        // Handle Class Selection Change (Simulated)
+        classSelector.addEventListener('change', (event) => {
+            console.log(`Class changed to: ${event.target.value}. Fetching new report data...`);
+            // In a real app, this would trigger an AJAX call to load the new data
+            alert(`Loading report for ${event.target.options[event.target.selectedIndex].text}`);
+        });
+
+        // Handle Calendar Day Click (Simulated to load daily report)
+        calendarDaysEl.addEventListener('click', (event) => {
+            const dayEl = event.target.closest('.calendar-day');
+            if (dayEl && dayEl.dataset.date) {
+                const dateString = dayEl.dataset.date;
+                const dateParts = dateString.split('-');
+                const formattedDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric'
+                });
+                
+                // Update Daily Report Header (UI Simulation)
+                dailyReportDateEl.textContent = formattedDate;
+
+                // Visually mark the selected day (UI Simulation)
+                document.querySelectorAll('.calendar-day').forEach(el => {
+                    el.classList.remove('border-blue-500', 'border-2', 'shadow-inner');
+                    el.querySelector('.day-label')?.classList.remove('text-blue-600');
+                    el.querySelector('.day-label')?.classList.add('text-gray-900');
+                });
+                dayEl.classList.add('border-blue-500', 'border-2', 'shadow-inner');
+                dayEl.querySelector('.day-label').classList.remove('text-gray-900');
+                dayEl.querySelector('.day-label').classList.add('text-blue-600');
+                
+                // In a real app, this would trigger an AJAX call to load the daily report table data
+                console.log(`Daily report requested for: ${dateString}`);
+            }
+        });
+
+        // Handle Export Button (Simulated)
+        document.getElementById('export-report-btn').addEventListener('click', () => {
+             const selectedClass = classSelector.options[classSelector.selectedIndex].text;
+             alert(`Generating and downloading report for: ${selectedClass}. (Format: CSV/PDF)`);
+        });
+
+        // ------------------------------------------------------------------------------------------------
+        // Firebase Initialization (Kept for completeness, logic is simple in this page)
+        // ------------------------------------------------------------------------------------------------
+        // NOTE: The Firebase imports and logic are included but not strictly necessary for this page's 
+        // static UI, as the data fetching is just simulated via console logs/alerts.
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, auth, db, rtdb; 
+        
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig, appId);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                rtdb = getDatabase(app, firebaseConfig.databaseURL); 
+
+                onAuthStateChanged(auth, async (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        userIdEl.textContent = user.uid;
+                    } else {
+                        statusEl.textContent = "Anonymous";
+                        statusEl.classList.remove('text-yellow-500', 'text-green-500');
+                        statusEl.classList.add('text-red-500');
+                        userIdEl.textContent = 'Unauthenticated/Guest'; 
+                    }
+                });
+
+                if (!initialAuthToken) {
+                    await signInAnonymously(auth);
+                }
+                
+            } catch (error) {
+                console.error("Firebase initialization or sign-in failed:", error);
+                document.getElementById('auth-status').textContent = "ERROR";
+                document.getElementById('auth-status').classList.remove('text-yellow-500');
+                document.getElementById('auth-status').classList.add('text-red-500');
+            }
+        }
+
+        initializeFirebase();
+        
+    </script>
+</body>
+</html>

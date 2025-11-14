@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College QR Attendance System - Notifications & Alerts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .stat-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        /* Specific sizing for icons in navigation/buttons (Lucide inserts SVG here) */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } /* 20x20 for nav */
+        .stat-icon { width: 1.5rem; height: 1.5rem; } /* 24x24 for stats */
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* 1. Mobile Sidebar Positioning */
+        #sidebar {
+            /* Use a CSS variable for the sidebar width for easier calculation */
+            --sidebar-width: 16rem; /* 256px for w-64 */
+            
+            /* The transition should apply to the transform property */
+            transition: transform 0.3s ease-in-out;
+            
+            /* The initial state (hidden off-screen) */
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            
+            /* Ensure it is hidden until the user clicks */
+            position: fixed; 
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 40;
+        }
+        
+        /* 2. Main content offset (to make room for the sidebar when it's open) */
+        #main-content {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* 3. State when menu is open on small screens */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #main-content {
+            /* Shift main content over by sidebar width */
+            transform: translateX(var(--sidebar-width));
+            /* Hide the main content overflow when the sidebar is open on mobile */
+            overflow: hidden; 
+        }
+        .sidebar-open body {
+            overflow: hidden; /* Prevent body scroll while sidebar is open */
+        }
+
+        /* 4. Desktop/Large Screen Reset (Standard side-by-side layout) */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative; /* Take up flow space */
+                transform: translateX(0); /* Always visible */
+                flex-shrink: 0;
+            }
+            #main-content {
+                transform: translateX(0); /* No shift needed */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
+        <i data-lucide="menu" class="lucide-icon"></i>
+    </button>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+            <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="home_overview.html" class="nav-item">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Home Overview
+            </a>
+            <a href="scan_attendance.html" class="nav-item">
+                <i data-lucide="scan-line" class="lucide-icon mr-3"></i>
+                Scan Attendance
+            </a>
+            <a href="my_classes.html" class="nav-item">
+                <i data-lucide="book-open-text" class="lucide-icon mr-3"></i>
+                My Classes
+            </a>
+            <a href="class_attendance_reports.html" class="nav-item">
+                <i data-lucide="file-text" class="lucide-icon mr-3"></i>
+                Class Attendance Reports
+            </a>
+            <a href="notifications_alerts.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="bell" class="lucide-icon mr-3"></i>
+                Notifications & Alerts
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <h1 class="text-3xl font-extrabold text-gray-800">Notifications & Alerts</h1>
+            <p class="text-gray-500">Critical attendance warnings and system notifications across all your classes.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-xl">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 flex items-center">
+                    <i data-lucide="bell-ring" class="lucide-icon mr-3 text-red-600"></i>
+                    Teacher Alerts (Total: <span id="alert-count" class="text-red-600">4</span>)
+                </h2>
+                <div id="notifications-list" class="space-y-4">
+                    
+                    <div class="p-4 bg-red-50 border border-red-300 rounded-lg">
+                        <div class="flex items-start">
+                            <i data-lucide="alert-octagon" class="lucide-icon mt-1 text-red-500 flex-shrink-0"></i>
+                            <div class="ml-4">
+                                <p class="text-lg font-semibold text-red-800">CRITICAL ABSENCE: J. Dela Cruz</p>
+                                <p class="text-sm text-red-700">Student in **CS 101 - Algorithmn Design** has **3 consecutive absences**. Requires immediate follow-up.</p>
+                                <p class="text-xs text-gray-500 mt-1">Last seen: 3 days ago | Status: Pending Counseling</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                        <div class="flex items-start">
+                            <i data-lucide="clock" class="lucide-icon mt-1 text-yellow-600 flex-shrink-0"></i>
+                            <div class="ml-4">
+                                <p class="text-lg font-semibold text-yellow-800">FREQUENT LATENESS: M. Garcia</p>
+                                <p class="text-sm text-yellow-700">Student in **ENG 101 - Technical Writing** has accumulated **5 late marks** this semester.</p>
+                                <p class="text-xs text-gray-500 mt-1">Lates this week: 2 | Threshold: 5 total lates</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-orange-50 border border-orange-300 rounded-lg">
+                        <div class="flex items-start">
+                            <i data-lucide="minus-circle" class="lucide-icon mt-1 text-orange-600 flex-shrink-0"></i>
+                            <div class="ml-4">
+                                <p class="text-lg font-semibold text-orange-800">EXCESSIVE ABSENCE: E. Santos</p>
+                                <p class="text-sm text-orange-700">Student in **MATH 205 - Calculus III** has reached **8 total absences** (Term limit is 10).</p>
+                                <p class="text-xs text-gray-500 mt-1">Last absence: Oct 28, 2025 | Total Absences: 8/10</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-blue-50 border border-blue-300 rounded-lg">
+                        <div class="flex items-start">
+                            <i data-lucide="fingerprint" class="lucide-icon mt-1 text-blue-600 flex-shrink-0"></i>
+                            <div class="ml-4">
+                                <p class="text-lg font-semibold text-blue-800">ID MISSED TODAY: A. Reyes</p>
+                                <p class="text-sm text-blue-700">Student attempted check-in without a QR ID for **CS 101**. Manual attendance required.</p>
+                                <p class="text-xs text-gray-500 mt-1">Time: 08:05 AM | Action: Teacher verified attendance manually.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-xl h-fit">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                    <i data-lucide="settings-2" class="lucide-icon mr-2 text-blue-600"></i>
+                    Alert Settings
+                </h2>
+                <div class="space-y-4 text-sm text-gray-700">
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span>Min. Consecutive Absences:</span>
+                        <span class="font-semibold text-red-600">3 Days</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span>Lateness Threshold:</span>
+                        <span class="font-semibold text-yellow-600">5 Times</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span>Total Absence Warning:</span>
+                        <span class="font-semibold text-orange-600">8 Times</span>
+                    </div>
+                    <div class="pt-2">
+                        <p class="font-medium text-gray-800 mb-2">Notification Channel:</p>
+                        <ul class="space-y-1 ml-4 list-disc text-sm text-gray-600">
+                            <li><span class="font-semibold">Email:</span> Every 24 hours</li>
+                            <li><span class="font-semibold">System Dashboard:</span> Live</li>
+                            <li><span class="font-semibold">SMS:</span> Critical only</li>
+                        </ul>
+                    </div>
+                    <button class="w-full mt-4 flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition duration-150">
+                        <i data-lucide="edit" class="lucide-icon mr-2"></i>
+                        Edit Notification Rules
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+    </div> 
+    
+    <script type="module">
+        // Ensure Lucide icons are rendered after the script loads
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View 
+        // ------------------------------------------------------------------------------------------------
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('main-content');
+        const menuButton = document.getElementById('menu-button');
+        const body = document.body;
+
+        menuButton.addEventListener('click', () => {
+            // Toggle the global class on the body to enable the "push" effect
+            body.classList.toggle('sidebar-open');
+        });
+        
+        // --- Firebase Logic (Minimal setup for context, actual data fetch functions omitted for this view) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getDatabase } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, auth, rtdb; 
+        
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig, appId);
+                auth = getAuth(app);
+                rtdb = getDatabase(app, firebaseConfig.databaseURL); 
+
+                onAuthStateChanged(auth, async (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        userIdEl.textContent = user.uid;
+                    } else {
+                        statusEl.textContent = "Anonymous";
+                        statusEl.classList.remove('text-yellow-500', 'text-green-500');
+                        statusEl.classList.add('text-red-500');
+                        userIdEl.textContent = 'Unauthenticated/Guest'; 
+                    }
+                });
+
+                if (!initialAuthToken) {
+                    await signInAnonymously(auth);
+                }
+                
+            } catch (error) {
+                console.error("Firebase initialization or sign-in failed:", error);
+                document.getElementById('auth-status').textContent = "ERROR";
+                document.getElementById('auth-status').classList.remove('text-yellow-500');
+                document.getElementById('auth-status').classList.add('text-red-500');
+            }
+        }
+
+        initializeFirebase();
+        
+    </script>
+</body>
+</html>

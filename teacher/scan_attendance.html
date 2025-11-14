@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College QR Attendance System - Scan Attendance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.0.4/dist/jsQR.min.js"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Specific sizing for icons in navigation/buttons (Lucide inserts SVG here) */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } /* 20x20 for nav */
+        .stat-icon { width: 1.5rem; height: 1.5rem; } /* 24x24 for stats */
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* 1. Mobile Sidebar Positioning */
+        #sidebar {
+            --sidebar-width: 16rem; /* 256px for w-64 */
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed; 
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 40;
+        }
+        
+        /* 2. Main content offset (to make room for the sidebar when it's open) */
+        #main-content {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* 3. State when menu is open on small screens */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #main-content {
+            transform: translateX(var(--sidebar-width));
+            overflow: hidden; 
+        }
+        .sidebar-open body {
+            overflow: hidden; /* Prevent body scroll while sidebar is open */
+        }
+
+        /* 4. Desktop/Large Screen Reset (Standard side-by-side layout) */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative;
+                transform: translateX(0);
+                flex-shrink: 0;
+            }
+            #main-content {
+                transform: translateX(0);
+            }
+        }
+
+        /* --- QR Scanner Custom Styles FIX --- */
+
+        /* New: Enforce a container for the video and overlay with a specific aspect ratio */
+        #video-container {
+            position: relative;
+            width: 100%;
+            /* Use a 4:3 aspect ratio which is often better for portrait-mode QR scanning on mobile, 
+                but 16/9 is also fine if the feed is meant to be landscape. */
+            aspect-ratio: 16 / 9; /* Use 16/9 as per original code's intent */
+            max-height: 400px; /* Keep height limit */
+            border-radius: 0.75rem;
+            overflow: hidden; /* Important: keeps children contained and respects border-radius */
+            background-color: #1f2937;
+        }
+        
+        /* Video feed must fill its *container* completely */
+        #video-feed {
+            width: 100%;
+            height: 100%;
+            /* Remove explicit aspect-ratio here, the container controls it */
+            object-fit: cover; 
+            /* Remove background color and border-radius here, container handles it */
+        }
+
+        .scanning-focus {
+            /* Fix 1: Ensure the overlay covers the whole container */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; /* Allows clicks to pass through to the video element */
+            z-index: 10;
+        }
+
+        .scanning-focus::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            /* Fix 2: Set the scanning box size based on the video container size */
+            width: 70%; /* 70% of the container width */
+            padding-top: 70%; /* This is the key: makes it square based on its width */
+            box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.7); /* Darkens the area outside the box */
+            border-radius: 0.5rem;
+            /* Remove the main border here to use the corner effect */
+        }
+
+        /* Corner Visuals (Better than a plain border) */
+        .scanning-focus::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            padding-top: 70%;
+            border: 4px solid transparent;
+            border-radius: 0.5rem;
+            box-sizing: border-box;
+
+            /* You can use a simpler border image for better compatibility/simplicity */
+            /* This applies a blue corner only */
+            border-top: 5px solid #3b82f6;
+            border-bottom: 5px solid #3b82f6;
+            border-left: 5px solid #3b82f6;
+            border-right: 5px solid #3b82f6;
+
+            clip-path: polygon(
+                0 0, 12px 0, 12px 12px, 0 12px, 0 0, /* Top Left */
+                calc(100% - 12px) 0, 100% 0, 100% 12px, calc(100% - 12px) 12px, calc(100% - 12px) 0, /* Top Right */
+                calc(100% - 12px) calc(100% - 12px), 100% calc(100% - 12px), 100% 100%, calc(100% - 12px) 100%, calc(100% - 12px) calc(100% - 12px), /* Bottom Right */
+                0 calc(100% - 12px), 12px calc(100% - 12px), 12px 100%, 0 100%, 0 calc(100% - 12px) /* Bottom Left */
+            );
+        }
+
+        @media (max-width: 640px) {
+            .scanning-focus::after, .scanning-focus::before {
+                width: 90%; /* Wider on small screens */
+                padding-top: 90%;
+            }
+        }
+        /* --- END FIX --- */
+
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
+        <i data-lucide="menu" class="lucide-icon"></i>
+    </button>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+            <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="home_overview.html" class="nav-item">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Home Overview
+            </a>
+            <a href="scan_attendance.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="scan-line" class="lucide-icon mr-3"></i>
+                Scan Attendance
+            </a>
+            <a href="my_classes.html" class="nav-item">
+                <i data-lucide="book-open-text" class="lucide-icon mr-3"></i>
+                My Classes
+            </a>
+            <a href="class_attendance_reports.html" class="nav-item">
+                <i data-lucide="file-text" class="lucide-icon mr-3"></i>
+                Class Attendance Reports
+            </a>
+            <a href="notifications_alerts.html" class="nav-item">
+                <i data-lucide="bell" class="lucide-icon mr-3"></i>
+                Notifications & Alerts
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-green-500">Authenticating...</span></p>
+            <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
+                <i data-lucide="scan-line" class="lucide-icon mr-3 text-blue-600 w-8 h-8"></i>
+                Scan Attendance
+            </h1>
+            <p class="text-gray-500">Scan student QR codes for Check-In/Check-Out or manually manage.</p>
+        </header>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-xl">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i data-lucide="camera" class="lucide-icon mr-2 text-blue-600"></i>
+                    Live Camera Feed (Scan QR)
+                </h2>
+                <div id="video-container" class="relative mb-4 shadow-lg">
+                    <video id="video-feed" autoplay playsinline></video>
+                    <div class="scanning-focus"></div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <select id="camera-selector" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Camera (Laptop/Phone/Tablet)</option>
+                        </select>
+                    
+                    <select id="class-selector" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Class to Scan For</option>
+                        <option value="CS101">CS 101 - Algorithm Design (Section A)</option>
+                        <option value="MATH205">MATH 205 - Calculus III (Section B)</option>
+                        <option value="ENG101">ENG 101 - Technical Writing (Section C)</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div class="flex items-center">
+                        <i data-lucide="clock" class="lucide-icon mr-2 text-blue-600"></i>
+                        <span class="text-sm font-medium text-gray-700">Attendance Type:</span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="check-in-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow-md transition duration-150 hover:bg-blue-700">
+                            Check-In
+                        </button>
+                        <button id="check-out-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold shadow-md transition duration-150 hover:bg-gray-300">
+                            Check-Out
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-1 space-y-6">
+
+                <div class="bg-white p-6 rounded-xl shadow-xl border-l-4 border-gray-300" id="scan-result-panel">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                        <i data-lucide="user-check" class="lucide-icon mr-2 text-gray-600"></i>
+                        Scan Result
+                    </h2>
+                    
+                    <div id="scan-status-box" class="text-center p-6 rounded-lg mb-4 hidden">
+                        <i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2"></i>
+                        <p class="text-lg font-bold">Waiting...</p>
+                    </div>
+
+                    <div id="student-info" class="space-y-3">
+                        <p class="text-gray-500">Last Scanned Student ID:</p>
+                        <p class="text-xl font-bold text-gray-900" id="scanned-id">N/A</p>
+                        <p class="text-2xl font-bold text-gray-900" id="scanned-name">N/A</p>
+                        <p class="text-base text-gray-700" id="scanned-section">Section: N/A</p>
+                        <hr class="my-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-600">Type:</span>
+                            <span id="scanned-type" class="text-base font-semibold text-blue-600">Check-In</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-600">Status:</span>
+                            <span id="scanned-status" class="text-base font-bold text-gray-500">Waiting for Scan...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-xl">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                        <i data-lucide="edit-3" class="lucide-icon mr-2 text-purple-600"></i>
+                        Manual Actions
+                    </h2>
+                    
+                    <button class="w-full flex items-center justify-center px-4 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition duration-150 shadow-md mb-3" onclick="openManualMarkModal()">
+                        <i data-lucide="user-plus" class="lucide-icon mr-2"></i>
+                        Manually Mark Attendance
+                    </button>
+
+                    <button class="w-full flex items-center justify-center px-4 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition duration-150 shadow-md mb-3" onclick="openExcusedAbsenceModal()">
+                        <i data-lucide="calendar-check" class="lucide-icon mr-2"></i>
+                        Mark Excused Absence
+                    </button>
+
+                    <button class="w-full flex items-center justify-center px-4 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition duration-150 shadow-md" onclick="openRemarksModal()">
+                        <i data-lucide="file-text" class="lucide-icon mr-2"></i>
+                        Add Remarks / Note
+                    </button>
+                    
+                </div>
+            </div>
+            
+        </section>
+
+        <section class="mt-6">
+            <div class="bg-white p-6 rounded-xl shadow-xl">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                    <i data-lucide="history" class="lucide-icon mr-2 text-gray-600"></i>
+                    Recent Attendance Logs (Last 10 Scans)
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class/Section</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="recent-scans-body">
+                            <tr><td colspan="6" class="text-center py-4 text-gray-500">Loading logs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+
+        <div id="manual-mark-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+                    <h3 class="text-2xl font-bold mb-4 flex items-center border-b pb-2">
+                        <i data-lucide="user-plus" class="lucide-icon mr-2 text-purple-600"></i>
+                        Manually Mark Attendance
+                    </h3>
+                    <div class="space-y-4">
+                        <input type="text" placeholder="Search Student Name or ID" class="w-full px-3 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                        <select class="w-full px-3 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                            <option>Select Attendance Type</option>
+                            <option>Present</option>
+                            <option>Late</option>
+                            <option>Absent</option>
+                        </select>
+                        <textarea placeholder="Add optional remarks..." class="w-full px-3 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500"></textarea>
+                        <div class="flex justify-end space-x-3">
+                            <button onclick="closeManualMarkModal()" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400">Cancel</button>
+                            <button class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Mark Attendance</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div> 
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getDatabase, 
+            ref, 
+            onValue, 
+            push, 
+            set, 
+            query, 
+            orderByChild, 
+            limitToLast 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const rtdb = getDatabase(app);
+        let userId = null;
+        let studentsData = {}; // Cache student data for quick lookup
+        let scanType = 'Check-In'; // Default scan type
+
+        // --- DOM Elements ---
+        const authStatusEl = document.getElementById('auth-status');
+        const userIdEl = document.getElementById('user-id');
+        const classSelectorEl = document.getElementById('class-selector');
+        const scannedIdEl = document.getElementById('scanned-id');
+        const scannedNameEl = document.getElementById('scanned-name');
+        const scannedSectionEl = document.getElementById('scanned-section');
+        const scannedStatusEl = document.getElementById('scanned-status');
+        const scanStatusBoxEl = document.getElementById('scan-status-box');
+        const scanResultPanelEl = document.getElementById('scan-result-panel');
+        const recentScansBodyEl = document.getElementById('recent-scans-body');
+        const videoElement = document.getElementById('video-feed');
+        const canvasElement = document.createElement('canvas'); // Needed for jsQR scanning
+        const canvasContext = canvasElement.getContext('2d');
+        let stream = null;
+        let animationFrameId = null;
+
+
+        // --- Helper Functions to get Firebase Refs ---
+        function getStudentsRef() {
+            return ref(rtdb, 'students');
+        }
+        function getAttendanceLogsRef() {
+            // Logs structure: /attendance/classId/date/logId
+            const classId = classSelectorEl.value;
+            if (!classId) {
+                console.error("Please select a class before scanning.");
+                return null;
+            }
+            const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            return ref(rtdb, `attendance/${classId}/${date}`);
+        }
+        function getRecentLogsQuery() {
+            // Query the last 10 logs across all attendance records (requires a new top-level logs collection for simplicity or more complex multi-path queries)
+            // For simplicity, we'll query recent logs from a generic 'all_logs' path, sorted by timestamp.
+            return query(ref(rtdb, 'all_logs'), orderByChild('timestamp'), limitToLast(10));
+        }
+
+
+        // --- 1. Authentication and Initialization ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                userIdEl.textContent = userId;
+                authStatusEl.textContent = 'Authenticated';
+                authStatusEl.classList.remove('text-red-500');
+                authStatusEl.classList.add('text-green-500');
+                loadStudentsData();
+                loadRecentLogs();
+                // Camera init is now handled by DOMContentLoaded below
+            } else {
+                authStatusEl.textContent = 'Unauthenticated';
+                authStatusEl.classList.remove('text-green-500');
+                authStatusEl.classList.add('text-red-500');
+                signInAnonymously(auth);
+            }
+        });
+
+        // --- 2. Data Loading (Students and Logs) ---
+
+        // Load all students into local cache (necessary for attendance lookup)
+        function loadStudentsData() {
+            onValue(getStudentsRef(), (snapshot) => {
+                const data = snapshot.val() || {};
+                studentsData = data;
+                console.log("Students data loaded:", Object.keys(studentsData).length);
+            }, { onlyOnce: true });
+        }
+
+        // Load and render recent logs
+        function loadRecentLogs() {
+            // Note: Firebase Realtime Database is not ideal for complex, large-scale queries like "latest 10 logs from all classes."
+            // This implementation assumes a simplified 'all_logs' collection for a cleaner example.
+            const logsQuery = getRecentLogsQuery();
+            onValue(logsQuery, (snapshot) => {
+                const data = snapshot.val() || {};
+                const logs = Object.keys(data)
+                    .map(key => ({ id: key, ...data[key] }))
+                    .sort((a, b) => b.timestamp - a.timestamp) // Sort descending by timestamp
+                    .slice(0, 10); // Take top 10
+
+                renderRecentLogs(logs);
+            });
+        }
+
+        function renderRecentLogs(logs) {
+            recentScansBodyEl.innerHTML = '';
+            if (!logs.length) {
+                recentScansBodyEl.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">No recent attendance logs found.</td></tr>';
+                return;
+            }
+
+            logs.forEach(log => {
+                const student = studentsData[log.studentKey] || { studentId: log.studentId, firstName: 'Unknown', lastName: 'Student', section: 'N/A' };
+                const fullName = `${student.lastName}, ${student.firstName}`;
+                const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const statusColor = log.status === 'Present' ? 'bg-green-100 text-green-800' : 
+                                    log.status === 'Late' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-gray-100 text-gray-800';
+                
+                const row = recentScansBodyEl.insertRow();
+                row.className = `hover:bg-${statusColor.split('-')[1]}-50/50`;
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${student.studentId}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${fullName}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${log.classId}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-900">${time}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-center text-${log.type === 'Check-In' ? 'blue' : 'purple'}-600 font-semibold">${log.type}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${log.status}</span>
+                    </td>
+                `;
+            });
+        }
+
+        // --- 3. Attendance Logic (The core function) ---
+
+        /**
+         * Logs the attendance for a given student ID.
+         * @param {string} studentId - The student's ID scanned from the QR code.
+         * @param {string} type - 'Check-In' or 'Check-Out'.
+         * @param {string} classId - The ID of the class currently being scanned for.
+         */
+        async function markAttendance(studentId, type, classId) {
+            const studentsRef = getStudentsRef();
+            const attendanceRef = getAttendanceLogsRef();
+            const allLogsRef = ref(rtdb, 'all_logs');
+
+            if (!classId || !attendanceRef) {
+                displayScanResult("Error", "Please select a class before scanning.", "red", "alert-triangle");
+                return;
+            }
+
+            // 1. Find the student's unique Firebase key and data
+            let studentKey = null;
+            let studentData = null;
+
+            // Simple lookup in cached data
+            const key = Object.keys(studentsData).find(k => studentsData[k].studentId === studentId);
+            if (key) {
+                studentKey = key;
+                studentData = studentsData[key];
+            } else {
+                displayScanResult("Error", `Student ID ${studentId} not found in database.`, "red", "x-circle");
+                return;
+            }
+
+            // 2. Determine attendance status (simplified: always 'Present' for a scan unless late logic is added)
+            // Real-world: Compare scan time against class start/end time to determine 'Late' status.
+            let status = 'Present';
+
+            // 3. Prepare the log data
+            const timestamp = Date.now();
+            const logEntry = {
+                studentId: studentId,
+                studentKey: studentKey, // For easier lookup in other tables
+                classId: classId,
+                type: type, // 'Check-In' or 'Check-Out'
+                status: status, // 'Present', 'Late', 'Absent' (Absent is manual)
+                timestamp: timestamp,
+                loggedBy: userId,
+                // Add student name/section for easier log viewing
+                firstName: studentData.firstName,
+                lastName: studentData.lastName,
+                section: studentData.section
+            };
+
+            // 4. Save to Firebase RTDB
+            try {
+                // Save to the class-specific path (for attendance reporting)
+                await set(push(attendanceRef), logEntry);
+                // Save a duplicate log to a generic path (for the recent activity feed)
+                await set(push(allLogsRef), logEntry);
+
+                const statusColor = status === 'Present' ? 'green' : 'yellow';
+                const icon = status === 'Present' ? 'check-circle' : 'alert-circle';
+
+                displayScanResult(
+                    `${studentData.lastName}, ${studentData.firstName}`, 
+                    `${status}: ${type} Complete!`, 
+                    statusColor, 
+                    icon, 
+                    studentData.section,
+                    studentData.studentId
+                );
+
+            } catch (error) {
+                console.error("Error logging attendance:", error);
+                displayScanResult("DB Error", "Failed to save attendance log.", "red", "x-circle");
+            }
+        }
+
+        // --- 4. QR Scanner Functions (Integrates jsQR) ---
+        
+        // This function will be called on a successful QR scan (studentId is the QR data)
+        function onQRCodeScanned(studentId) {
+            // Avoid scanning the same code multiple times in quick succession
+            if (studentId === scannedIdEl.textContent) return; 
+
+            const classId = classSelectorEl.value;
+            if (!classId) {
+                 displayScanResult("Error", "Please select a class first.", "red", "alert-triangle");
+                 return;
+            }
+            
+            // Log the attendance to Firebase
+            markAttendance(studentId, scanType, classId);
+        }
+
+        // Main animation loop for video processing
+        function tick() {
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                // Resize the canvas to match the video feed
+                canvasElement.height = videoElement.videoHeight;
+                canvasElement.width = videoElement.videoWidth;
+                canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                
+                // Get the image data from the center of the canvas (where the scanning focus is)
+                const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    onQRCodeScanned(code.data);
+                }
+            }
+            animationFrameId = requestAnimationFrame(tick);
+        }
+
+        // Starts the video stream and QR scanning
+        async function startScanning(deviceId) {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            }
+
+            try {
+                const constraints = {
+                    video: { 
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        facingMode: deviceId ? undefined : 'environment' // Fallback to environment on mobile if no device selected
+                    }
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = stream;
+                videoElement.play();
+                
+                // Start the scanning loop once video metadata loads
+                videoElement.onloadedmetadata = () => {
+                    requestAnimationFrame(tick);
+                };
+
+            } catch (err) {
+                console.error("Error accessing the camera:", err);
+                const videoContainer = document.getElementById('video-container');
+                videoContainer.innerHTML = '<div class="flex items-center justify-center w-full h-full p-4"><p class="text-center text-red-800 font-semibold bg-red-200 p-4 rounded-lg">Camera access denied or device not found. Please enable camera permissions.</p></div>';
+            }
+        }
+
+        // Populates the camera selector dropdown
+        async function populateCameraSelector() {
+            const selector = document.getElementById('camera-selector');
+            selector.innerHTML = '<option value="">Select Camera (Auto)</option>';
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Camera ${index + 1}`;
+                    selector.appendChild(option);
+                });
+                // Start scanning with the default (first) camera or environment
+                startScanning(videoDevices.length > 0 ? videoDevices[0].deviceId : null);
+
+            } catch (err) {
+                console.error("Error enumerating devices:", err);
+            }
+        }
+
+
+        // --- 5. UI/Event Handlers ---
+
+        function displayScanResult(name, statusMessage, color, icon, section, studentId) {
+            scannedIdEl.textContent = studentId || 'N/A';
+            scannedNameEl.textContent = name;
+            scannedSectionEl.textContent = `Section: ${section || 'N/A'}`;
+            scannedStatusEl.textContent = statusMessage;
+            scannedStatusEl.className = `text-base font-bold text-${color}-600`;
+            
+            // Status box update
+            scanStatusBoxEl.classList.remove('hidden', 'bg-red-50', 'bg-yellow-50', 'bg-green-50', 'border-red-500', 'border-yellow-500', 'border-green-500');
+            scanStatusBoxEl.classList.add(`bg-${color}-50`, `border-${color}-500`);
+            scanStatusBoxEl.querySelector('i').setAttribute('data-lucide', icon);
+            scanStatusBoxEl.querySelector('i').className = `w-8 h-8 text-${color}-600 mx-auto mb-2`;
+            scanStatusBoxEl.querySelector('p').textContent = statusMessage;
+            scanStatusBoxEl.querySelector('p').className = `text-lg font-bold text-${color}-800`;
+            
+            // Main panel border update
+            scanResultPanelEl.classList.remove('border-l-red-500', 'border-l-yellow-500', 'border-l-green-500', 'border-l-gray-300');
+            scanResultPanelEl.classList.add(`border-l-${color}-500`);
+
+            lucide.createIcons(); // Re-render the new icon
+            
+            // Clear result after 5 seconds
+            setTimeout(() => {
+                scanStatusBoxEl.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // Modal placeholder functions
+        window.openManualMarkModal = () => document.getElementById('manual-mark-modal').classList.remove('hidden');
+        window.closeManualMarkModal = () => document.getElementById('manual-mark-modal').classList.add('hidden');
+        window.openExcusedAbsenceModal = () => alert("Open Excused Absence Modal (Functionality not implemented)");
+        window.openRemarksModal = () => alert("Open Remarks Modal (Functionality not implemented)");
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            
+            // Sidebar Toggle
+            const body = document.body;
+            document.getElementById('menu-button').addEventListener('click', () => {
+                body.classList.toggle('sidebar-open');
+            });
+
+            // Camera selector change handler
+            document.getElementById('camera-selector').addEventListener('change', (e) => {
+                startScanning(e.target.value);
+            });
+
+            // Check-In/Check-Out Button Toggle
+            const checkInBtn = document.getElementById('check-in-btn');
+            const checkOutBtn = document.getElementById('check-out-btn');
+            const scannedTypeEl = document.getElementById('scanned-type');
+
+            function setActiveButton(activeBtn, inactiveBtn, typeText, typeColor) {
+                scanType = typeText;
+                activeBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                activeBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                inactiveBtn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                inactiveBtn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                scannedTypeEl.textContent = typeText;
+                scannedTypeEl.className = 'text-base font-semibold ' + typeColor;
+            }
+
+            checkInBtn.addEventListener('click', () => {
+                setActiveButton(checkInBtn, checkOutBtn, 'Check-In', 'text-blue-600');
+            });
+            checkOutBtn.addEventListener('click', () => {
+                setActiveButton(checkOutBtn, checkInBtn, 'Check-Out', 'text-purple-600');
+            });
+
+            // Initial Camera Setup
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                populateCameraSelector();
+            } else {
+                console.warn("MediaDevices API not supported.");
+            }
+        });
+
+    </script>
+</body>
+</html>

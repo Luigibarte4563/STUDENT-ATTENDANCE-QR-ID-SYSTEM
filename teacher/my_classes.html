@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College QR Attendance System - My Classes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling (from previous reference) */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        .lucide-icon { width: 1.25rem; height: 1.25rem; }
+        .stat-icon { width: 1.5rem; height: 1.5rem; }
+        .nav-item { display: flex; align-items: center; padding: 0.75rem; border-radius: 0.5rem; color: #d1d5db; transition: background-color 0.15s, color 0.15s; }
+        .nav-item:hover { background-color: #1f2937; color: white; }
+
+        /* Sidebar positioning styles from previous reference */
+        #sidebar { --sidebar-width: 16rem; transition: transform 0.3s ease-in-out; transform: translateX(calc(-1 * var(--sidebar-width))); position: fixed; top: 0; bottom: 0; left: 0; z-index: 40; }
+        #main-content { transition: transform 0.3s ease-in-out; }
+        .sidebar-open #sidebar { transform: translateX(0); }
+        .sidebar-open #main-content { transform: translateX(var(--sidebar-width)); overflow: hidden; }
+        .sidebar-open body { overflow: hidden; }
+        @media (min-width: 1024px) { 
+            #sidebar { position: relative; transform: translateX(0); flex-shrink: 0; }
+            #main-content { transform: translateX(0); }
+        }
+        
+        /* Custom styles for accordion */
+        .class-header[aria-expanded="true"] .chevron-icon {
+            transform: rotate(180deg);
+        }
+        .chevron-icon {
+            transition: transform 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
+        <i data-lucide="menu" class="lucide-icon"></i>
+    </button>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+            <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="home_overview.html" class="nav-item">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Home Overview
+            </a>
+            <a href="scan_attendance.html" class="nav-item">
+                <i data-lucide="scan-line" class="lucide-icon mr-3"></i>
+                Scan Attendance
+            </a>
+            <a href="my_classes.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="book-open-text" class="lucide-icon mr-3"></i>
+                My Classes
+            </a>
+            <a href="class_attendance_reports.html" class="nav-item">
+                <i data-lucide="file-text" class="lucide-icon mr-3"></i>
+                Class Attendance Reports
+            </a>
+            <a href="notifications_alerts.html" class="nav-item">
+                <i data-lucide="bell" class="lucide-icon mr-3"></i>
+                Notifications & Alerts
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-green-500">Authenticated</span></p>
+            <p>User ID: <span id="user-id" class="break-all">TCH-001-A</span></p>
+        </div>
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
+                <i data-lucide="book-open-text" class="lucide-icon mr-2 text-blue-600"></i>
+                My Assigned Classes
+            </h1>
+            <p class="text-gray-500">Manage student roster, attendance, and quick actions for each section.</p>
+        </header>
+
+        <section class="space-y-6">
+            
+            <div class="bg-white rounded-xl shadow-xl overflow-hidden border-t-4 border-blue-500">
+                
+                <div id="class-header-1" class="class-header p-4 sm:p-5 flex justify-between items-center cursor-pointer bg-blue-50 hover:bg-blue-100 transition duration-150" 
+                     onclick="toggleSection(1)" aria-expanded="false" aria-controls="student-list-1">
+                    
+                    <div class="flex items-center">
+                        <i data-lucide="code-square" class="stat-icon text-blue-600 mr-3"></i>
+                        <div>
+                            <h2 class="text-lg sm:text-xl font-bold text-gray-900">CS 101 - Algorithm Design (Section A)</h2>
+                            <p class="text-sm text-gray-600">Total Students: 50 | Schedule: M/W/F 8:00 AM</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <div class="text-center">
+                            <p class="text-xs uppercase text-gray-500 font-medium">Present Today</p>
+                            <p class="text-base font-semibold text-green-600">48 / 50</p>
+                        </div>
+                        
+                        <button class="flex items-center px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition">
+                            <i data-lucide="printer" class="lucide-icon w-4 h-4 mr-1"></i>
+                            Reprint QR
+                        </button>
+                        
+                        <i data-lucide="chevron-down" class="lucide-icon chevron-icon text-gray-600 ml-4"></i>
+                    </div>
+                </div>
+
+                <div id="student-list-1" class="p-0 transition-all duration-300 ease-in-out overflow-hidden max-h-0" role="region" aria-labelledby="class-header-1">
+                    <div class="p-4 sm:p-6">
+                        <h3 class="text-md font-semibold text-gray-700 mb-3 border-b pb-2 flex items-center">
+                            <i data-lucide="list-checks" class="lucide-icon mr-2 text-blue-500"></i>
+                            Student Roster
+                        </h3>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Today's Status</th>
+                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">2023-0001</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Garcia, Maria L.</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-green-600 font-semibold">PRESENT (8:00 AM)</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm space-x-2">
+                                            <button title="View Profile" class="text-blue-600 hover:text-blue-900">
+                                                <i data-lucide="user"></i>
+                                            </button>
+                                            <button title="View History" class="text-purple-600 hover:text-purple-900">
+                                                <i data-lucide="list-todo"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">2023-0002</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Dela Cruz, Juan P.</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-yellow-600 font-semibold">LATE (8:15 AM)</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm space-x-2">
+                                            <button title="View Profile" class="text-blue-600 hover:text-blue-900">
+                                                <i data-lucide="user"></i>
+                                            </button>
+                                            <button title="View History" class="text-purple-600 hover:text-purple-900">
+                                                <i data-lucide="list-todo"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">2023-0003</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Reyes, Sofia M.</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-red-600 font-semibold">ABSENT</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm space-x-2">
+                                            <button title="View Profile" class="text-blue-600 hover:text-blue-900">
+                                                <i data-lucide="user"></i>
+                                            </button>
+                                            <button title="View History" class="text-purple-600 hover:text-purple-900">
+                                                <i data-lucide="list-todo"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 flex justify-end">
+                            <button class="flex items-center px-4 py-2 bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-300 transition">
+                                <i data-lucide="download" class="lucide-icon w-4 h-4 mr-2"></i>
+                                Export Roster
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bg-white rounded-xl shadow-xl overflow-hidden border-t-4 border-purple-500">
+                
+                <div id="class-header-2" class="class-header p-4 sm:p-5 flex justify-between items-center cursor-pointer bg-purple-50 hover:bg-purple-100 transition duration-150" 
+                     onclick="toggleSection(2)" aria-expanded="false" aria-controls="student-list-2">
+                    
+                    <div class="flex items-center">
+                        <i data-lucide="calculator" class="stat-icon text-purple-600 mr-3"></i>
+                        <div>
+                            <h2 class="text-lg sm:text-xl font-bold text-gray-900">MATH 205 - Calculus III (Section B)</h2>
+                            <p class="text-sm text-gray-600">Total Students: 40 | Schedule: T/TH 10:00 AM</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <div class="text-center">
+                            <p class="text-xs uppercase text-gray-500 font-medium">Present Today</p>
+                            <p class="text-base font-semibold text-green-600">35 / 40</p>
+                        </div>
+                        
+                        <button class="flex items-center px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition">
+                            <i data-lucide="printer" class="lucide-icon w-4 h-4 mr-1"></i>
+                            Reprint QR
+                        </button>
+                        
+                        <i data-lucide="chevron-down" class="lucide-icon chevron-icon text-gray-600 ml-4"></i>
+                    </div>
+                </div>
+
+                <div id="student-list-2" class="p-0 transition-all duration-300 ease-in-out overflow-hidden max-h-0" role="region" aria-labelledby="class-header-2">
+                    <div class="p-4 sm:p-6">
+                        <p class="text-gray-500 italic">Student roster and individual attendance actions for MATH 205...</p>
+                    </div>
+                </div>
+
+            </div>
+            
+        </section>
+
+    </div> 
+    
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View 
+        // ------------------------------------------------------------------------------------------------
+        const menuButton = document.getElementById('menu-button');
+        const body = document.body;
+
+        menuButton.addEventListener('click', () => {
+            body.classList.toggle('sidebar-open');
+        });
+        
+        // ------------------------------------------------------------------------------------------------
+        // Accordion / Class List Toggle Logic 
+        // ------------------------------------------------------------------------------------------------
+        function toggleSection(classId) {
+            const header = document.getElementById(`class-header-${classId}`);
+            const content = document.getElementById(`student-list-${classId}`);
+            
+            const isExpanded = header.getAttribute('aria-expanded') === 'true';
+
+            if (isExpanded) {
+                // Collapse
+                header.setAttribute('aria-expanded', 'false');
+                content.style.maxHeight = '0';
+                content.classList.remove('p-4'); // Remove padding when collapsed if needed, but managing 'max-height' is key
+            } else {
+                // Expand
+                header.setAttribute('aria-expanded', 'true');
+                // Temporarily set max-height to scroll height to enable transition, then set a large value
+                content.style.maxHeight = content.scrollHeight + 'px';
+                // A safer large value if content changes dynamically:
+                setTimeout(() => {
+                    content.style.maxHeight = '1000px'; 
+                }, 300); // Wait for the initial transition to start
+            }
+        }
+
+        // NOTE: Firebase/Authentication logic from the reference page is omitted for simplicity 
+        // as this response focuses on the 'My Classes' UI structure.
+    </script>
+</body>
+</html>

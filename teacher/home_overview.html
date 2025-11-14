@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College QR Attendance System - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .stat-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        /* Specific sizing for icons in navigation/buttons (Lucide inserts SVG here) */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } /* 20x20 for nav */
+        .stat-icon { width: 1.5rem; height: 1.5rem; } /* 24x24 for stats */
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* 1. Mobile Sidebar Positioning */
+        #sidebar {
+            /* Use a CSS variable for the sidebar width for easier calculation */
+            --sidebar-width: 16rem; /* 256px for w-64 */
+            
+            /* The transition should apply to the transform property */
+            transition: transform 0.3s ease-in-out;
+            
+            /* The initial state (hidden off-screen) */
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            
+            /* Ensure it is hidden until the user clicks */
+            position: fixed; 
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 40;
+        }
+        
+        /* 2. Main content offset (to make room for the sidebar when it's open) */
+        #main-content {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* 3. State when menu is open on small screens */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #main-content {
+            /* Shift main content over by sidebar width */
+            transform: translateX(var(--sidebar-width));
+            /* Hide the main content overflow when the sidebar is open on mobile */
+            overflow: hidden; 
+        }
+        .sidebar-open body {
+            overflow: hidden; /* Prevent body scroll while sidebar is open */
+        }
+
+        /* 4. Desktop/Large Screen Reset (Standard side-by-side layout) */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative; /* Take up flow space */
+                transform: translateX(0); /* Always visible */
+                flex-shrink: 0;
+            }
+            #main-content {
+                transform: translateX(0); /* No shift needed */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
+        <i data-lucide="menu" class="lucide-icon"></i>
+    </button>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+            <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="home_overview.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Home Overview
+            </a>
+            <a href="scan_attendance.html" class="nav-item">
+                <i data-lucide="scan-line" class="lucide-icon mr-3"></i>
+                Scan Attendance
+            </a>
+            <a href="my_classes.html" class="nav-item">
+                <i data-lucide="book-open-text" class="lucide-icon mr-3"></i>
+                My Classes
+            </a>
+            <a href="class_attendance_reports.html" class="nav-item">
+                <i data-lucide="file-text" class="lucide-icon mr-3"></i>
+                Class Attendance Reports
+            </a>
+            <a href="notifications_alerts.html" class="nav-item">
+                <i data-lucide="bell" class="lucide-icon mr-3"></i>
+                Notifications & Alerts
+            </a>
+            </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <h1 class="text-3xl font-extrabold text-gray-800">Dashboard Overview</h1>
+            <p class="text-gray-500">Current Status of College Attendance System</p>
+        </header>
+
+        <section class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 mb-8">
+            
+            <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-blue-500">
+                <div class="flex items-center">
+                    <div class="p-3 bg-blue-100 rounded-full mr-3 sm:mr-4">
+                        <i data-lucide="graduation-cap" class="stat-icon text-blue-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Total Students</p>
+                        <p class="text-xl sm:text-2xl font-bold text-gray-900" id="total-students">-</p> 
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-purple-500">
+                <div class="flex items-center">
+                    <div class="p-3 bg-purple-100 rounded-full mr-3 sm:mr-4">
+                        <i data-lucide="users-2" class="stat-icon text-purple-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Total Teachers</p>
+                        <p class="text-xl sm:text-2xl font-bold text-gray-900" id="total-teachers">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-green-500">
+                <div class="flex items-center">
+                    <div class="p-3 bg-green-100 rounded-full mr-3 sm:mr-4">
+                        <i data-lucide="check-circle" class="stat-icon text-green-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Present Today</p>
+                        <p class="text-xl sm:text-2xl font-bold text-gray-900" id="present-today">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-red-500">
+                <div class="flex items-center">
+                    <div class="p-3 bg-red-100 rounded-full mr-3 sm:mr-4">
+                        <i data-lucide="x-circle" class="stat-icon text-red-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Absent Today</p>
+                        <p class="text-xl sm:text-2xl font-bold text-gray-900" id="absent-today">-</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-yellow-500">
+                <div class="flex items-center">
+                    <div class="p-3 bg-yellow-100 rounded-full mr-3 sm:mr-4">
+                        <i data-lucide="hourglass" class="stat-icon text-yellow-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Late Today</p>
+                        <p class="text-xl sm:text-2xl font-bold text-gray-900" id="late-today">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-pink-500">
+                <div class="flex items-center">
+                    <div class="p-3 bg-pink-100 rounded-full mr-3 sm:mr-4">
+                        <i data-lucide="layout-grid" class="stat-icon text-pink-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Total Sections</p>
+                        <p class="text-xl sm:text-2xl font-bold text-gray-900" id="total-sections">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-orange-500">
+                <div class="flex items-center">
+                    <div class="p-3 bg-orange-100 rounded-full mr-3 sm:mr-4">
+                        <i data-lucide="bell" class="stat-icon text-orange-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Alerts (24h)</p>
+                        <p class="text-xl sm:text-2xl font-bold text-gray-900 text-red-600" id="total-alerts">-</p>
+                    </div>
+                </div>
+            </div>
+            
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-xl">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                    <i data-lucide="clipboard-list" class="lucide-icon mr-2 text-blue-600"></i>
+                    Assigned Classes & Today's Attendance Summary
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class/Section</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Present Today</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Absent Today</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Late Today</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="class-attendance-summary">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">CS 101 - Algorithm Design (Section A)</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-green-600 font-semibold">48/50</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-red-600 font-semibold">2</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-yellow-600 font-semibold">1</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">MATH 205 - Calculus III (Section B)</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-green-600 font-semibold">35/40</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-red-600 font-semibold">5</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-yellow-600 font-semibold">0</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">ENG 101 - Technical Writing (Section C)</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-green-600 font-semibold">60/75</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-red-600 font-semibold">10</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-yellow-600 font-semibold">5</td>
+                            </tr>
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-xl">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                    <i data-lucide="alert-triangle" class="lucide-icon mr-2 text-red-600"></i>
+                    Attendance Notifications & Warnings
+                </h2>
+                <div id="notifications-list" class="space-y-3">
+                    
+                    <div class="p-3 bg-red-50 border border-red-300 rounded-lg">
+                        <div class="flex items-start">
+                            <i data-lucide="minus-circle" class="lucide-icon mt-1 text-red-500 flex-shrink-0"></i>
+                            <div class="ml-3">
+                                <p class="text-sm font-semibold text-red-800">ABSENT STREAK: J. Dela Cruz</p>
+                                <p class="text-xs text-red-700">Student in CS 101 has **3 consecutive absences**.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
+                        <div class="flex items-start">
+                            <i data-lucide="clock" class="lucide-icon mt-1 text-yellow-600 flex-shrink-0"></i>
+                            <div class="ml-3">
+                                <p class="text-sm font-semibold text-yellow-800">LATE STREAK: M. Garcia</p>
+                                <p class="text-xs text-yellow-700">Student in ENG 101 has **5 late marks** this week.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-3 bg-orange-50 border border-orange-300 rounded-lg">
+                        <div class="flex items-start">
+                            <i data-lucide="bar-chart-2" class="lucide-icon mt-1 text-orange-600 flex-shrink-0"></i>
+                            <div class="ml-3">
+                                <p class="text-sm font-semibold text-orange-800">HIGH ABSENTEEISM</p>
+                                <p class="text-xs text-orange-700">ENG 101 has **20% (10 students)** absent today.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <p class="text-xs text-gray-400 mt-4 italic">Total live alerts: <span id="alert-count" class="font-bold text-red-600">3</span></p>
+            </div>
+            
+        </section>
+
+        <section class="bg-white p-6 rounded-xl shadow-xl">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Quick Actions</h2>
+            <div class="flex flex-col sm:flex-row gap-4">
+                
+                <button class="flex-1 w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition duration-150 shadow-lg">
+                    <i data-lucide="user-plus" class="lucide-icon mr-2"></i>
+                    Add Student
+                </button>
+
+                <button class="flex-1 w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition duration-150 shadow-lg">
+                    <i data-lucide="user-cog" class="lucide-icon mr-2"></i>
+                    Add Teacher
+                </button>
+
+                <button class="flex-1 w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition duration-150 shadow-lg">
+                    <i data-lucide="qr-code" class="lucide-icon mr-2"></i>
+                    Generate QR
+                </button>
+            </div>
+        </section>
+
+    </div> 
+    
+    <script type="module">
+        // Ensure Lucide icons are rendered after the script loads
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View 
+        // ------------------------------------------------------------------------------------------------
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('main-content');
+        const menuButton = document.getElementById('menu-button');
+        const body = document.body;
+
+        menuButton.addEventListener('click', () => {
+            // Toggle the global class on the body to enable the "push" effect
+            body.classList.toggle('sidebar-open');
+        });
+        
+        // --- Firebase Logic (Kept as provided, ensure real data fetches include class/section data) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, auth, db, rtdb; 
+        let isAuthReady = false;
+        
+        setLogLevel('debug');
+
+        function showMessage(title, content) {
+            console.log(`[Message: ${title}] ${content}`);
+        }
+
+        function getStudentsRef() {
+            return ref(rtdb, 'students');
+        }
+
+        function loadStudentCount() {
+            if (!isAuthReady || !rtdb) return;
+
+            const studentsRef = getStudentsRef();
+
+            onValue(studentsRef, (snapshot) => {
+                let studentCount = 0;
+                const data = snapshot.val();
+                if (data) {
+                    studentCount = Object.keys(data).length;
+                }
+                const totalStudentsEl = document.getElementById('total-students');
+                if (totalStudentsEl) {
+                    totalStudentsEl.textContent = studentCount.toLocaleString();
+                }
+            }, (error) => {
+                console.error("Error loading student count from RTDB:", error);
+                document.getElementById('total-students').textContent = 'Error';
+                showMessage("Database Error", "Failed to load student count.");
+            });
+        }
+
+
+        function fetchDashboardStats() {
+            if (!rtdb) {
+                console.error("Realtime Database not initialized.");
+                return;
+            }
+
+            const statsRef = ref(rtdb, 'stats');
+
+            onValue(statsRef, (snapshot) => {
+                const stats = snapshot.val();
+                
+                if (stats) {
+                    const updateElement = (id, value) => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            el.textContent = (typeof value === 'number') ? value.toLocaleString() : value;
+                        } 
+                    };
+
+                    updateElement('total-teachers', stats.totalTeachers || 0);
+                    updateElement('present-today', stats.presentToday || 0);
+                    updateElement('absent-today', stats.absentToday || 0);
+                    updateElement('late-today', stats.lateToday || 0);
+                    updateElement('total-sections', stats.totalSections || 0);
+                    updateElement('total-alerts', stats.totalAlerts || 0);
+                    // Add an update for the local alert counter
+                    const alertCountEl = document.getElementById('alert-count');
+                    if(alertCountEl) {
+                        alertCountEl.textContent = (stats.totalAlerts || 0).toLocaleString();
+                    }
+                }
+            }, (error) => {
+                console.error("Error fetching dashboard stats:", error);
+                document.getElementById('total-teachers').textContent = 'Error';
+            });
+        }
+
+        // NOTE: In a real implementation, you would need a separate function 
+        // (like fetchClassAttendance) to populate the table for the "Assigned Classes" section 
+        // with data like: Class Name, Present Count, Absent Count, Late Count.
+        
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig, appId);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                rtdb = getDatabase(app, firebaseConfig.databaseURL); 
+
+                onAuthStateChanged(auth, async (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        userIdEl.textContent = user.uid;
+                        
+                        loadStudentCount();
+                        fetchDashboardStats();
+                        // fetchClassAttendance(); // Hypothetical function call for class table data
+                        
+                    } else {
+                        statusEl.textContent = "Anonymous";
+                        statusEl.classList.remove('text-yellow-500', 'text-green-500');
+                        statusEl.classList.add('text-red-500');
+                        userIdEl.textContent = 'Unauthenticated/Guest'; 
+                    }
+                    isAuthReady = true;
+                });
+
+                if (!initialAuthToken) {
+                    await signInAnonymously(auth);
+                }
+                
+            } catch (error) {
+                console.error("Firebase initialization or sign-in failed:", error);
+                document.getElementById('auth-status').textContent = "ERROR";
+                document.getElementById('auth-status').classList.remove('text-yellow-500');
+                document.getElementById('auth-status').classList.add('text-red-500');
+            }
+        }
+
+        initializeFirebase();
+        
+    </script>
+</body>
+</html>

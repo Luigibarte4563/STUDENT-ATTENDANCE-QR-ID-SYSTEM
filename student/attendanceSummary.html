@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Summary | Student Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Specific sizing for icons in navigation/buttons */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } /* 20x20 for nav */
+        
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+
+        /* Stat Card for a subtle lift effect */
+        .stat-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Monthly Calendar Grid Styling */
+        .calendar-day {
+            min-height: 5rem; /* Ensure card height for calendar days */
+            transition: background-color 0.15s;
+        }
+
+        /* Status Colors for Calendar Days */
+        .day-present { background-color: #d1fae5; color: #065f46; border-left: 4px solid #10b981; } /* Green 100/700 */
+        .day-absent { background-color: #fee2e2; color: #991b1b; border-left: 4px solid #f87171; } /* Red 100/400 */
+        .day-late { background-color: #fffbeb; color: #92400e; border-left: 4px solid #facc15; } /* Yellow 100/400 */
+        .day-off { background-color: #f3f4f6; color: #6b7280; } /* Gray 100 */
+
+        /* Responsive Sidebar Positioning (copied from your reference) */
+        #sidebar {
+            --sidebar-width: 16rem;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
+        }
+        #main-content {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #main-content {
+            transform: translateX(var(--sidebar-width));
+            overflow: hidden; 
+        }
+        .sidebar-open body {
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) {
+            #sidebar {
+                position: relative; transform: translateX(0); flex-shrink: 0;
+            }
+            #main-content {
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+
+    <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
+        <i data-lucide="menu" class="lucide-icon"></i>
+    </button>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 lucide-icon"></i>
+            <span class="text-xl font-bold text-blue-400">Student Portal</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="studentDashboard.html" class="nav-item">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Dashboard
+            </a>
+            <a href="attendanceSummary.html" class="nav-item bg-gray-700 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="calendar-check" class="lucide-icon mr-3"></i>
+                Attendance History
+            </a>
+            <a href="studentQRCode.html" class="nav-item">
+                <i data-lucide="scan-line" class="lucide-icon mr-3"></i>
+                My QR Code
+            </a>
+            <a href="studentProfile.html" class="nav-item">
+                <i data-lucide="user" class="lucide-icon mr-3"></i>
+                My Profile
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>Student ID: <span id="user-id" class="break-all">S123456</span></p>
+        </div>
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
+                <i data-lucide="bar-chart-3" class="lucide-icon mr-3 h-8 w-8 text-blue-600"></i>
+                Overall Attendance Summary
+            </h1>
+            <p class="text-gray-500">View your academic attendance records and detailed monthly breakdown.</p>
+        </header>
+
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            
+            <div class="stat-card p-5 bg-white rounded-xl shadow-lg border-l-4 border-green-500">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase">Total Days Present</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="total-present">125</p> 
+                    </div>
+                    <i data-lucide="check-circle" class="lucide-icon w-6 h-6 text-green-500"></i>
+                </div>
+            </div>
+
+            <div class="stat-card p-5 bg-white rounded-xl shadow-lg border-l-4 border-red-500">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase">Total Absences</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="total-absences">7</p>
+                    </div>
+                    <i data-lucide="x-circle" class="lucide-icon w-6 h-6 text-red-500"></i>
+                </div>
+            </div>
+
+            <div class="stat-card p-5 bg-white rounded-xl shadow-lg border-l-4 border-yellow-500">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase">Total Late</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="total-late">12</p>
+                    </div>
+                    <i data-lucide="clock" class="lucide-icon w-6 h-6 text-yellow-500"></i>
+                </div>
+            </div>
+
+            <div class="stat-card p-5 bg-white rounded-xl shadow-lg border-l-4 border-blue-500">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase">Attendance Percentage</p>
+                        <p class="text-3xl font-bold text-blue-600 mt-1" id="attendance-percent">94.7%</p>
+                    </div>
+                    <i data-lucide="trending-up" class="lucide-icon w-6 h-6 text-blue-500"></i>
+                </div>
+            </div>
+            
+        </section>
+
+        <section class="bg-white p-6 rounded-xl shadow-xl">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-bold text-gray-800">
+                    Monthly Attendance Calendar 
+                    <span id="current-month" class="text-blue-600 ml-2">November 2025</span>
+                </h2>
+                <div class="flex space-x-2">
+                    <button id="prev-month-btn" class="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700">
+                        <i data-lucide="chevron-left" class="lucide-icon"></i>
+                    </button>
+                    <button id="next-month-btn" class="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700">
+                        <i data-lucide="chevron-right" class="lucide-icon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-7 text-center text-sm font-semibold text-gray-500 mb-2">
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+            </div>
+            
+            <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                </div>
+
+            <div class="mt-6 pt-4 border-t">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Legend</h3>
+                <div class="flex flex-wrap gap-4 text-sm">
+                    <span class="flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-green-500 mr-2"></span> Present
+                    </span>
+                    <span class="flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span> Absent
+                    </span>
+                    <span class="flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></span> Late
+                    </span>
+                    <span class="flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-gray-300 mr-2"></span> Day Off / Future
+                    </span>
+                </div>
+            </div>
+
+        </section>
+
+    </div> 
+
+    <script type="module">
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Sidebar Toggle Logic
+        // ------------------------------------------------------------------------------------------------
+        const menuButton = document.getElementById('menu-button');
+        const body = document.body;
+
+        menuButton.addEventListener('click', () => {
+            body.classList.toggle('sidebar-open');
+        });
+
+        // ------------------------------------------------------------------------------------------------
+        // Calendar Functionality
+        // ------------------------------------------------------------------------------------------------
+        const calendarGrid = document.getElementById('calendar-grid');
+        const currentMonthEl = document.getElementById('current-month');
+        let currentDate = new Date(); 
+
+        // --- Simulated Attendance Data (Replace with Firebase/API call) ---
+        // P: Present, A: Absent, L: Late, O: Day Off/Not tracked
+        const simulatedAttendance = {
+            '2025-11-01': 'P', '2025-11-02': 'O', '2025-11-03': 'P', '2025-11-04': 'P', '2025-11-05': 'L',
+            '2025-11-06': 'P', '2025-11-07': 'A', '2025-11-08': 'P', '2025-11-09': 'O', '2025-11-10': 'P',
+            '2025-11-11': 'P', '2025-11-12': 'P', '2025-11-13': 'L', '2025-11-14': 'P', '2025-11-15': 'A',
+            // ... more days
+        };
+        // ------------------------------------------------------------------
+
+
+        function renderCalendar(date) {
+            calendarGrid.innerHTML = '';
+            
+            const month = date.getMonth();
+            const year = date.getFullYear();
+            currentMonthEl.textContent = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            
+            const firstDayOfMonth = new Date(year, month, 1);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 (Sunday) to 6 (Saturday)
+            
+            const today = new Date();
+
+            // 1. Add padding days (empty cells before the 1st)
+            for (let i = 0; i < startingDayOfWeek; i++) {
+                const emptyDay = document.createElement('div');
+                calendarGrid.appendChild(emptyDay);
+            }
+
+            // 2. Add actual days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const status = simulatedAttendance[dateString] || 'O';
+                const dayEl = document.createElement('div');
+                
+                dayEl.classList.add('p-2', 'rounded-lg', 'shadow-sm', 'text-sm', 'font-medium', 'calendar-day', 'relative', 'hover:shadow-md');
+                
+                // Determine CSS class based on status
+                let statusClass = 'bg-gray-100 text-gray-700'; // Default: Day Off/Future
+                if (status === 'P') statusClass = 'day-present';
+                if (status === 'A') statusClass = 'day-absent';
+                if (status === 'L') statusClass = 'day-late';
+
+                dayEl.classList.add(...statusClass.split(' '));
+
+                // Add current day indicator
+                if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                     dayEl.classList.add('bg-blue-200', 'border-blue-500', 'border-2', 'font-bold');
+                }
+                
+                dayEl.innerHTML = `
+                    <p class="text-xl font-extrabold mb-1">${day}</p>
+                    <p class="text-xs uppercase leading-none">${status === 'P' ? 'Present' : status === 'A' ? 'Absent' : status === 'L' ? 'Late' : 'N/A'}</p>
+                `;
+                
+                calendarGrid.appendChild(dayEl);
+            }
+        }
+
+        // Navigation Handlers
+        document.getElementById('prev-month-btn').addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar(currentDate);
+        });
+
+        document.getElementById('next-month-btn').addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar(currentDate);
+        });
+
+        // Initial render
+        renderCalendar(currentDate);
+
+        // ------------------------------------------------------------------------------------------------
+        // FIREBASE LOGIC (Kept as placeholder)
+        // ------------------------------------------------------------------------------------------------
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+        
+        let app, auth; 
+        
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                
+                onAuthStateChanged(auth, async (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        // Fetch student ID and total stats here
+                        
+                    } else {
+                        statusEl.textContent = "Unauthenticated";
+                        statusEl.classList.add('text-red-500');
+                        userIdEl.textContent = 'N/A'; 
+                        await signInAnonymously(auth);
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                document.getElementById('auth-status').textContent = "ERROR";
+            }
+        }
+
+        initializeFirebase();
+        
+    </script>
+</body>
+</html>

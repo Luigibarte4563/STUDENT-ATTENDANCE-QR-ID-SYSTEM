@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College QR Attendance System - Select Role</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font for consistent look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Specific sizing for icons */
+        .lucide-icon { width: 1.5rem; height: 1.5rem; } 
+
+        /* Custom style for the buttons to mimic the reference UI */
+        .role-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%; /* Full width on small screens */
+            max-width: 300px; /* Max width for better look on large screens */
+            padding: 1.25rem 1.5rem;
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 600; /* font-semibold */
+            border-radius: 0.75rem; /* rounded-xl */
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.15s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        .role-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-2xl text-center">
+        <div class="flex items-center justify-center mb-6">
+            <i data-lucide="qr-code" class="text-blue-600 mr-3 lucide-icon"></i>
+            <h1 class="text-2xl font-extrabold text-gray-800">Select Your Role</h1>
+        </div>
+        
+        <div class="flex flex-col space-y-5">
+            <a href="admin/adminDashboard.html" class="role-link bg-blue-600 text-white hover:bg-blue-700 mx-auto">
+                <i data-lucide="shield-check" class="lucide-icon mr-3"></i>
+                Admin Access
+            </a>
+
+            <a href="student/studentDashboard.html" class="role-link bg-green-600 text-white hover:bg-green-700 mx-auto">
+                <i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>
+                Student Portal
+            </a>
+            
+            <a href="teacher/home_overview.html" class="role-link bg-purple-600 text-white hover:bg-purple-700 mx-auto">
+                <i data-lucide="users" class="lucide-icon mr-3"></i>
+                Teacher Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>

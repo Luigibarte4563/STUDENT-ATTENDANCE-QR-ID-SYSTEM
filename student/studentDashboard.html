@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Student Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Specific sizing for icons in navigation/buttons */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } /* 20x20 for nav */
+        
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* Responsive Sidebar Positioning */
+        #sidebar {
+            --sidebar-width: 16rem;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
+        }
+        #main-content {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #main-content {
+            transform: translateX(var(--sidebar-width));
+            overflow: hidden; 
+        }
+        .sidebar-open body {
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) {
+            #sidebar {
+                position: relative; transform: translateX(0); flex-shrink: 0;
+            }
+            #main-content {
+                transform: translateX(0);
+            }
+        }
+
+        /* Custom Progress Circle Styling (for the gauge) */
+        .progress-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: 
+                radial-gradient(closest-side, white 79%, transparent 80% 100%),
+                conic-gradient(#3b82f6 var(--progress), #e5e7eb 0);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+
+    <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
+        <i data-lucide="menu" class="lucide-icon"></i>
+    </button>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 lucide-icon"></i>
+            <span class="text-xl font-bold text-blue-400">Student Portal</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="studentDashboard.html" class="nav-item bg-gray-700 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Dashboard
+            </a>
+            <a href="attendanceSummary.html" class="nav-item">
+                <i data-lucide="calendar-check" class="lucide-icon mr-3"></i>
+                Attendance History
+            </a>
+            <a href="studentQRCode.html" class="nav-item">
+                <i data-lucide="scan-line" class="lucide-icon mr-3"></i>
+                My QR Code
+            </a>
+            <a href="studentProfile.html" class="nav-item">
+                <i data-lucide="user" class="lucide-icon mr-3"></i>
+                My Profile
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>Student ID: <span id="user-id" class="break-all">S123456</span></p>
+        </div>
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3 h-8 w-8 text-blue-600"></i>
+                Student Dashboard
+            </h1>
+            <p class="text-gray-500">Welcome back! Quick overview of your attendance record.</p>
+        </header>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            
+            <div class="bg-white p-5 rounded-xl shadow-md border-b-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Total Present Days</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="total-present">45</p>
+                    </div>
+                    <i data-lucide="calendar-check" class="text-green-500 h-8 w-8"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-md border-b-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Total Absent Days</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="total-absent">3</p>
+                    </div>
+                    <i data-lucide="calendar-x" class="text-red-500 h-8 w-8"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-md border-b-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Total Tardy / Late</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="total-tardy">5</p>
+                    </div>
+                    <i data-lucide="clock-3" class="text-yellow-500 h-8 w-8"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-md border-b-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Overall Percentage</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1" id="overall-percentage">94.0%</p>
+                    </div>
+                    <i data-lucide="trending-up" class="text-blue-500 h-8 w-8"></i>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white p-6 rounded-xl shadow-xl max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <i data-lucide="clipboard-list" class="lucide-icon mr-2 text-blue-600"></i>
+                Detailed Overview
+            </h2>
+            <p class="text-gray-500 mb-6">Visual representation of your attendance performance.</p>
+            
+            <div class="flex flex-col md:flex-row gap-8 items-center">
+                
+                <div class="relative flex-shrink-0">
+                    <div id="attendance-gauge" class="progress-circle" style="--progress: 94%;">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span class="text-3xl font-extrabold text-blue-600" id="gauge-percentage">94%</span>
+                        </div>
+                    </div>
+                    <p class="text-center mt-3 text-sm text-gray-600 font-medium">Attendance Rate</p>
+                </div>
+
+                <div class="flex-1 w-full">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <tbody class="bg-white divide-y divide-gray-100">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
+                                        <i data-lucide="user-check" class="lucide-icon w-5 h-5 mr-3 text-green-500"></i>
+                                        Total Days Tracked
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-lg text-gray-700 font-semibold" id="total-days">50</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
+                                        <i data-lucide="flag" class="lucide-icon w-5 h-5 mr-3 text-yellow-500"></i>
+                                        Lateness Incidents
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-lg text-gray-700 font-semibold" id="incidents-late">5</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
+                                        <i data-lucide="shield-check" class="lucide-icon w-5 h-5 mr-3 text-blue-500"></i>
+                                        Compliance Status
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-lg">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800" id="compliance-status">
+                                            Good Standing
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-4 border-t border-gray-100">
+                <a href="attendanceSummary.html" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    View Full Attendance History
+                    <i data-lucide="arrow-right" class="lucide-icon ml-2 h-4 w-4"></i>
+                </a>
+            </div>
+
+        </section>
+
+    </div> 
+
+    <script type="module">
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Sidebar Toggle Logic
+        // ------------------------------------------------------------------------------------------------
+        const menuButton = document.getElementById('menu-button');
+        const body = document.body;
+
+        menuButton.addEventListener('click', () => {
+            body.classList.toggle('sidebar-open');
+        });
+
+        // ------------------------------------------------------------------------------------------------
+        // Dashboard Data Fetching (Placeholder)
+        // ------------------------------------------------------------------------------------------------
+        function updateDashboardData() {
+            // Placeholder: In a real app, this would fetch dynamic data
+            const present = 45;
+            const absent = 3;
+            const tardy = 5;
+            const totalTracked = 50;
+            const percentage = ((present / totalTracked) * 100).toFixed(1);
+
+            document.getElementById('total-present').textContent = present;
+            document.getElementById('total-absent').textContent = absent;
+            document.getElementById('total-tardy').textContent = tardy;
+            document.getElementById('total-days').textContent = totalTracked;
+            document.getElementById('overall-percentage').textContent = percentage + '%';
+            document.getElementById('gauge-percentage').textContent = percentage + '%';
+            document.getElementById('incidents-late').textContent = tardy;
+            
+            // Update the CSS variable for the progress circle
+            document.getElementById('attendance-gauge').style.setProperty('--progress', percentage + '%');
+
+            // Compliance status based on percentage
+            const complianceStatusEl = document.getElementById('compliance-status');
+            if (percentage >= 95) {
+                complianceStatusEl.textContent = 'Excellent';
+                complianceStatusEl.classList.replace('bg-green-100', 'bg-blue-100');
+                complianceStatusEl.classList.replace('text-green-800', 'text-blue-800');
+            } else if (percentage >= 90) {
+                complianceStatusEl.textContent = 'Good Standing';
+                complianceStatusEl.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                complianceStatusEl.textContent = 'Action Required';
+                complianceStatusEl.classList.replace('bg-green-100', 'bg-red-100');
+                complianceStatusEl.classList.replace('text-green-800', 'text-red-800');
+            }
+        }
+        
+        updateDashboardData();
+
+
+        // ------------------------------------------------------------------------------------------------
+        // FIREBASE LOGIC (Kept as placeholder)
+        // ------------------------------------------------------------------------------------------------
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+        
+        let app, auth; 
+        
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                
+                onAuthStateChanged(auth, async (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        // In a real app, fetch the student's ID and personalized data here
+                        
+                    } else {
+                        statusEl.textContent = "Unauthenticated";
+                        statusEl.classList.add('text-red-500');
+                        userIdEl.textContent = 'N/A'; 
+                        await signInAnonymously(auth);
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                document.getElementById('auth-status').textContent = "ERROR";
+            }
+        }
+
+        initializeFirebase();
+        
+    </script>
+</body>
+</html>
