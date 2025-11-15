@@ -20,9 +20,8 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
         }
-        /* Specific sizing for icons in navigation/buttons (Lucide inserts SVG here) */
-        .lucide-icon { width: 1.25rem; height: 1.25rem; } /* 20x20 for nav */
-        .stat-icon { width: 1.5rem; height: 1.5rem; } /* 24x24 for stats */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
+        .stat-icon { width: 1.5rem; height: 1.5rem; } 
 
         /* Base Nav Item Styling */
         .nav-item {
@@ -38,45 +37,52 @@
             color: white;
         }
         
+        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
+        
         /* 1. Mobile Sidebar Positioning */
         #sidebar {
-            /* Use a CSS variable for the sidebar width for easier calculation */
             --sidebar-width: 16rem; /* 256px for w-64 */
-            
-            /* The transition should apply to the transform property */
             transition: transform 0.3s ease-in-out;
-            
-            /* The initial state (hidden off-screen) */
             transform: translateX(calc(-1 * var(--sidebar-width)));
-            
-            /* Ensure it is hidden until the user clicks */
-            position: fixed; 
+            position: fixed; /* Always fixed for overlay */
             top: 0; 
             bottom: 0;
             left: 0;
-            z-index: 40;
+            z-index: 50; /* Higher than button and backdrop */
         }
         
-        /* 2. Main content offset (to make room for the sidebar when it's open) */
+        /* 2. Backdrop styling (NEW) */
+        #backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40; /* Below sidebar */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        /* 3. Main content (No transform push on mobile, just top padding for fixed button/header) */
         #main-content {
-            transition: transform 0.3s ease-in-out;
+            padding-top: 5rem; /* Space for the fixed menu button */
         }
 
-        /* 3. State when menu is open on small screens */
+        /* 4. State when menu is open on small screens */
         .sidebar-open #sidebar {
             transform: translateX(0);
         }
-        .sidebar-open #main-content {
-            /* Shift main content over by sidebar width */
-            transform: translateX(var(--sidebar-width));
-            /* Hide the main content overflow when the sidebar is open on mobile */
-            overflow: hidden; 
+        .sidebar-open #backdrop {
+            opacity: 1;
+            visibility: visible;
         }
         .sidebar-open body {
             overflow: hidden; /* Prevent body scroll while sidebar is open */
         }
 
-        /* 4. Desktop/Large Screen Reset (Standard side-by-side layout) */
+        /* 5. Desktop/Large Screen Reset (Standard side-by-side layout) */
         @media (min-width: 1024px) { /* lg breakpoint */
             #sidebar {
                 position: relative; /* Take up flow space */
@@ -84,20 +90,46 @@
                 flex-shrink: 0;
             }
             #main-content {
-                transform: translateX(0); /* No shift needed */
+                padding-top: 1.5rem; /* Reset desktop padding */
+            }
+            #backdrop {
+                visibility: hidden !important;
+                opacity: 0 !important;
             }
         }
+        
+        /* 6. Mobile Header Centering (Simplified from original mobile-header-fix) */
+        @media (max-width: 1023px) { 
+            header {
+                /* Center text while leaving space for the fixed menu button */
+                text-align: center;
+                padding-left: 4rem; 
+            }
+        }
+        
     </style>
 </head>
 <body class="bg-gray-50 flex min-h-screen"> 
+    <!-- Backdrop/Overlay (Hidden by default) -->
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <!-- Mobile Menu Toggle Button (Fixed on Mobile, Hidden on Desktop) -->
     <button id="menu-button" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-lg shadow-lg lg:hidden">
-        <i data-lucide="menu" class="lucide-icon"></i>
+        <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
     </button>
 
+    <!-- Sidebar Navigation -->
     <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
-        <div class="p-6 flex items-center justify-center border-b border-gray-800">
-            <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
-            <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+        <!-- Sidebar Header with Mobile Close Button -->
+        <div class="p-6 flex items-center justify-between border-b border-gray-800">
+            <div class="flex items-center">
+                <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+                <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+            </div>
+            <!-- NEW: Close Button (Visible only on mobile/lg:hidden) -->
+            <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+                <i data-lucide="x" class="lucide-icon"></i>
+            </button>
         </div>
 
         <nav class="flex-1 overflow-y-auto p-4 space-y-2">
@@ -121,14 +153,15 @@
 
     </aside>
 
+    <!-- Main Content Area -->
     <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
         
-        <header class="mb-6 pb-4 border-b border-gray-200">
+        <header class="mb-6 pb-4 border-b border-gray-200 lg:text-left">
             <h1 class="text-3xl font-extrabold text-gray-800">Dashboard Overview</h1>
             <p class="text-gray-500">Current Status of College Attendance System</p>
         </header>
 
-        <section class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 mb-8">
+        <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 mb-8">
             
             <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-blue-500">
                 <div class="flex items-center">
@@ -237,32 +270,40 @@
             </div>
         </section>
 
-    </div> <script type="module">
+    </div> 
+    
+    <script type="module">
         // Ensure Lucide icons are rendered after the script loads
         lucide.createIcons();
 
         // ------------------------------------------------------------------------------------------------
-        // Toggle Sidebar for Mobile View (MODIFIED)
+        // Toggle Sidebar for Mobile View 
         // ------------------------------------------------------------------------------------------------
-        const sidebar = document.getElementById('sidebar');
-        const mainContent = document.getElementById('main-content');
+        const backdrop = document.getElementById('backdrop');
         const menuButton = document.getElementById('menu-button');
+        const sidebarCloseButton = document.getElementById('sidebar-close-button'); // NEW: Internal close button
         const body = document.body;
 
-        menuButton.addEventListener('click', () => {
-            // Toggle the -translate-x-full class on the sidebar is no longer needed
-            // The transform property is now handled by the .sidebar-open class via custom CSS
-            
-            // Toggle the global class on the body to enable the "push" effect
-            body.classList.toggle('sidebar-open');
-        });
+        const toggleSidebar = () => {
+            const isOpen = body.classList.toggle('sidebar-open');
+            // Change fixed external menu button icon based on state
+            const icon = document.getElementById('menu-icon');
+            icon.setAttribute('data-lucide', isOpen ? 'x' : 'menu');
+            lucide.createIcons(); // Re-render icon
+        };
         
-        // --- Firebase Logic (Omitted for brevity, kept same as original) ---
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar); // Close sidebar when clicking backdrop
+        sidebarCloseButton.addEventListener('click', toggleSidebar); // NEW: Close sidebar when clicking internal X
+
+        // --- Firebase Logic (Restored to the user's original logic) ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
         
+        // IMPORTANT: In a real environment, __firebase_config and __initial_auth_token are provided globally.
+        // Using provided config/token structure here for runtime compatibility.
         const firebaseConfig = {
             apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
             authDomain: "studentattendanceqridsys.firebaseapp.com",
@@ -287,6 +328,7 @@
         }
 
         function getStudentsRef() {
+            // Note: This uses the Realtime Database 'students' node based on the original structure.
             return ref(rtdb, 'students');
         }
 
@@ -347,7 +389,7 @@
         
         async function initializeFirebase() {
             try {
-                app = initializeApp(firebaseConfig, appId);
+                app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
                 rtdb = getDatabase(app, firebaseConfig.databaseURL); 
@@ -362,6 +404,7 @@
                         statusEl.classList.add('text-green-500');
                         userIdEl.textContent = user.uid;
                         
+                        // Start loading data after authentication
                         loadStudentCount();
                         fetchDashboardStats();
                         
@@ -374,7 +417,11 @@
                     isAuthReady = true;
                 });
 
-                if (!initialAuthToken) {
+                if (initialAuthToken) {
+                    // Using signInWithCustomToken requires an import that wasn't in the original list.
+                    // For simplicity and adherence to the original code flow, we'll assume signInAnonymously if token isn't present.
+                    // If running in the canvas environment, a custom token sign-in would be handled here.
+                } else if (!auth.currentUser) {
                     await signInAnonymously(auth);
                 }
                 
