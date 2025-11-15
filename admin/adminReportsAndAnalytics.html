@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics | QR Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .stat-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
+        .stat-icon { width: 1.5rem; height: 1.5rem; } 
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
+        
+        /* 1. Mobile Sidebar Positioning */
+        #sidebar {
+            --sidebar-width: 16rem; /* 256px for w-64 */
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed; 
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 50; 
+        }
+        
+        /* 2. Backdrop styling */
+        #backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40; 
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        /* 3. Main content padding adjustment for fixed mobile header */
+        #main-content {
+            padding-top: 6rem; /* Increased space for the fixed mobile header */
+        }
+
+        /* 4. State when menu is open on small screens */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #backdrop {
+            opacity: 1;
+            visibility: visible;
+        }
+        .sidebar-open body {
+            overflow: hidden; /* Prevent body scroll while sidebar is open */
+        }
+
+        /* 5. Desktop/Large Screen Reset (Standard side-by-side layout) */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative; 
+                transform: translateX(0); 
+                flex-shrink: 0;
+            }
+            #main-content {
+                padding-top: 1.5rem; /* Reset desktop padding */
+            }
+            #backdrop {
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <div class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 lg:hidden p-4">
+        <div class="flex items-center justify-between">
+            <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50">
+                <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
+            </button>
+            
+            <header class="flex-1 text-center -ml-1">
+                <h1 class="text-xl font-extrabold text-gray-800 truncate">Reports & Analytics</h1>
+                <p class="text-xs text-gray-500">Attendance insights and summaries</p>
+            </header>
+            
+            <div class="w-8 h-1"></div> 
+        </div>
+    </div>
+    
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-between border-b border-gray-800">
+            <div class="flex items-center">
+                <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+                <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+            </div>
+            <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+                <i data-lucide="x" class="lucide-icon"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="adminDashboard.html" class="nav-item"><i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>Dashboard Home</a>
+            <a href="adminLiveAttendanceMonitor.html" class="nav-item"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
+            <a href="adminStudentManagement.html" class="nav-item"><i data-lucide="users" class="lucide-icon mr-3"></i>Student Management</a>
+            <a href="adminStudentAccountManagement.html" class="nav-item"><i data-lucide="user-cog" class="lucide-icon mr-3"></i>Student Account Management</a>
+            <a href="adminTeacherManagement.html" class="nav-item"><i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>Teacher Management</a>
+            <a href="adminAttendanceRecords.html" class="nav-item"><i data-lucide="calendar-check" class="lucide-icon mr-3"></i>Attendance Records</a>
+            <a href="adminReportsAndAnalytics.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700"><i data-lucide="bar-chart-3" class="lucide-icon mr-3"></i>Reports & Analytics</a>
+            <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line" class="lucide-icon mr-3"></i>QR Code Manager</a>
+            <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings" class="lucide-icon mr-3"></i>System Settings</a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Not Connected</span></p>
+            <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="hidden lg:block mb-6 pb-4 border-b border-gray-200 lg:text-left">
+            <h1 class="text-3xl font-extrabold text-gray-800">Reports & Analytics</h1>
+            <p class="text-gray-500">View performance indicators and detailed attendance reports.</p>
+        </header>
+
+        <section class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <i data-lucide="line-chart" class="w-6 h-6 mr-2 text-blue-600"></i> Attendance Visualizations
+            </h2>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-xl border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Daily Attendance Graph (Last 7 Days)</h3>
+                    <div class="h-64 flex items-center justify-center bg-gray-50 border border-dashed rounded-lg">
+                        <p class="text-gray-400">Placeholder for **Line Chart** (e.g., using Chart.js)</p>
+                        </div>
+                    <div class="mt-4 flex flex-wrap gap-2 text-sm text-gray-500">
+                        <i data-lucide="calendar" class="w-4 h-4 text-blue-500"></i>
+                        <span class="font-medium">Filter:</span>
+                        <a href="#" class="text-blue-600 hover:underline">Today</a> | 
+                        <a href="#" class="text-blue-600 font-bold underline">Last 7 Days</a> |
+                        <a href="#" class="text-blue-600 hover:underline">Select Range</a>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1 grid grid-cols-2 gap-4">
+                    
+                    <div class="bg-blue-50 p-4 rounded-xl stat-card border border-blue-200">
+                        <div class="flex items-center mb-1">
+                            <i data-lucide="check-circle-2" class="stat-icon mr-2 text-blue-600"></i>
+                            <p class="text-sm font-medium text-blue-700">Present % Today</p>
+                        </div>
+                        <p class="text-2xl font-extrabold text-blue-900">N/A</p>
+                    </div>
+
+                    <div class="bg-red-50 p-4 rounded-xl stat-card border border-red-200">
+                        <div class="flex items-center mb-1">
+                            <i data-lucide="clock-2" class="stat-icon mr-2 text-red-600"></i>
+                            <p class="text-sm font-medium text-red-700">Late Students Today</p>
+                        </div>
+                        <p class="text-2xl font-extrabold text-red-900">-</p>
+                    </div>
+                    
+                    <div class="bg-green-50 p-4 rounded-xl stat-card border border-green-200">
+                        <div class="flex items-center mb-1">
+                            <i data-lucide="user-check" class="stat-icon mr-2 text-green-600"></i>
+                            <p class="text-sm font-medium text-green-700">Perfect Attendance</p>
+                        </div>
+                        <p class="text-2xl font-extrabold text-green-900">-</p>
+                    </div>
+                    
+                    <div class="bg-yellow-50 p-4 rounded-xl stat-card border border-yellow-200">
+                        <div class="flex items-center mb-1">
+                            <i data-lucide="user-x" class="stat-icon mr-2 text-yellow-600"></i>
+                            <p class="text-sm font-medium text-yellow-700">Absence Rate (Month)</p>
+                        </div>
+                        <p class="text-2xl font-extrabold text-yellow-900">N/A</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <i data-lucide="pie-chart" class="w-6 h-6 mr-2 text-purple-600"></i> Detailed Insights
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                <div class="bg-white p-6 rounded-xl shadow-xl border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Monthly Attendance Chart</h3>
+                    <div class="h-48 flex items-center justify-center bg-gray-50 border border-dashed rounded-lg">
+                        <p class="text-gray-400">Placeholder for **Bar/Pie Chart** (Monthly Breakdown)</p>
+                        </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-xl border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Class Attendance Comparison</h3>
+                    <div class="h-48 flex items-center justify-center bg-gray-50 border border-dashed rounded-lg">
+                        <p class="text-gray-400">Placeholder for **Bar Chart** (Section vs. Section)</p>
+                        </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-xl border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Top Late Students Report</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Student</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Lates</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr><td class="px-3 py-2">Placeholder 1</td><td class="px-3 py-2 font-bold text-red-600">-</td></tr>
+                                <tr><td class="px-3 py-2">Placeholder 2</td><td class="px-3 py-2 font-bold text-red-600">-</td></tr>
+                                <tr><td class="px-3 py-2">Placeholder 3</td><td class="px-3 py-2 font-bold text-red-600">-</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="#" class="mt-4 inline-block text-blue-600 text-sm hover:underline">View Full Late Students Report</a>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-xl border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Frequent Absentees Report</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Student</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Absences</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr><td class="px-3 py-2">Placeholder 1</td><td class="px-3 py-2 font-bold text-yellow-600">-</td></tr>
+                                <tr><td class="px-3 py-2">Placeholder 2</td><td class="px-3 py-2 font-bold text-yellow-600">-</td></tr>
+                                <tr><td class="px-3 py-2">Placeholder 3</td><td class="px-3 py-2 font-bold text-yellow-600">-</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="#" class="mt-4 inline-block text-blue-600 text-sm hover:underline">View Full Absentees Report</a>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-xl border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Perfect Attendance Ranking</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Rank</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Student</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Days</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr><td class="px-3 py-2 font-bold text-green-600">1</td><td class="px-3 py-2">Placeholder 1</td><td class="px-3 py-2">-</td></tr>
+                                <tr><td class="px-3 py-2 font-bold text-green-600">2</td><td class="px-3 py-2">Placeholder 2</td><td class="px-3 py-2">-</td></tr>
+                                <tr><td class="px-3 py-2 font-bold text-green-600">3</td><td class="px-3 py-2">Placeholder 3</td><td class="px-3 py-2">-</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="#" class="mt-4 inline-block text-blue-600 text-sm hover:underline">View Full Ranking</a>
+                </div>
+
+            </div>
+        </section>
+        
+        <div class="h-20"></div>
+
+    </div>
+    
+    <div id="message-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="message-modal-title">Message</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500" id="message-modal-content"></p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button type="button" onclick="closeModal('message-modal')" class="w-full px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Ensure Lucide icons are rendered after the script loads
+        lucide.createIcons();
+
+        // Custom Nav Item Styling Class for easy reuse
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.add('flex', 'items-center', 'p-3', 'rounded-lg', 'text-gray-300', 'hover:bg-gray-800', 'hover:text-white', 'transition', 'duration-150');
+        });
+
+        // Toggle Sidebar for Mobile View
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        const backdrop = document.getElementById('backdrop');
+        const body = document.body;
+        const closeButton = document.getElementById('sidebar-close-button');
+
+        function toggleSidebar() {
+            body.classList.toggle('sidebar-open');
+        }
+
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar); 
+        closeButton.addEventListener('click', toggleSidebar); 
+        
+        // --- Utility Functions (Kept for the modal) ---
+
+        /** Shows a custom message modal (replacing alert()) */
+        function showMessage(title, content) {
+            document.getElementById('message-modal-title').textContent = title;
+            document.getElementById('message-modal-content').textContent = content;
+            document.getElementById('message-modal').classList.remove('hidden');
+        }
+
+        /** Hides a modal by ID */
+        window.closeModal = function(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+    </script>
+</body>
+</html>
