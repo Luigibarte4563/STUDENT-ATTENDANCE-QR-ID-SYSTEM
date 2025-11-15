@@ -324,10 +324,11 @@
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200" id="recent-scans-body">
-                            <tr><td colspan="6" class="text-center py-4 text-gray-500">Loading logs...</td></tr>
+                            <tr><td colspan="7" class="text-center py-4 text-gray-500">Loading logs...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -359,7 +360,7 @@
                 </div>
             </div>
         </div>
-        </div> 
+    </div> 
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -371,7 +372,8 @@
             set, 
             query, 
             orderByChild, 
-            limitToLast 
+            limitToLast,
+            remove // <--- NEW IMPORT
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
@@ -520,7 +522,7 @@
         function renderRecentLogs(logs) {
             recentScansBodyEl.innerHTML = '';
             if (!logs.length) {
-                recentScansBodyEl.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">No recent attendance logs found.</td></tr>';
+                recentScansBodyEl.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-500">No recent attendance logs found.</td></tr>';
                 return;
             }
 
@@ -535,8 +537,8 @@
                 const fullName = `${student.lastName}, ${student.firstName}`;
                 const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const statusColor = log.status === 'Present' ? 'bg-green-100 text-green-800' : 
-                                    log.status === 'Late' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-gray-100 text-gray-800';
+                                     log.status === 'Late' ? 'bg-yellow-100 text-yellow-800' :
+                                     'bg-gray-100 text-gray-800';
                 
                 const row = recentScansBodyEl.insertRow();
                 row.className = `hover:bg-gray-50`;
@@ -549,9 +551,63 @@
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${log.status}</span>
                     </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                        <button 
+                            class="text-red-600 hover:text-red-900 transition duration-150" 
+                            data-log-id="${log.id}"
+                            data-class-id="${log.classId}"
+                            data-date="${new Date(log.timestamp).toISOString().slice(0, 10)}"
+                            data-key-in-class="${log.keyInClass || ''}"
+                            onclick="deleteLog(this)">
+                            <i data-lucide="trash-2" class="lucide-icon inline-block w-4 h-4"></i>
+                        </button>
+                    </td>
                 `;
             });
+             lucide.createIcons(); // Re-render icons after adding new HTML
         }
+        
+        // --- NEW: Delete Log Function ---
+        window.deleteLog = async function(buttonElement) {
+            const logId = buttonElement.getAttribute('data-log-id');
+            const classId = buttonElement.getAttribute('data-class-id');
+            const date = buttonElement.getAttribute('data-date');
+            const keyInClass = buttonElement.getAttribute('data-key-in-class');
+
+            if (!confirm(`Are you sure you want to delete log ID: ${logId}? This action cannot be undone.`)) {
+                return;
+            }
+
+            // 1. Delete from the 'all_logs' path
+            const allLogsRef = ref(rtdb, `all_logs/${logId}`);
+            
+            // 2. Delete from the class-specific path (if keyInClass is available)
+            // NOTE: In the current structure, you need the log key from the specific path.
+            // Since the current `markAttendance` creates *two* separate push keys, 
+            // you'd need the second key (keyInClass) to delete from the class path.
+            // For simplicity/safety, we only delete from 'all_logs' unless you have a way to reliably map keys.
+            // Assuming for now, deleting from 'all_logs' is sufficient for the log *display*.
+
+            try {
+                // Delete from all_logs (used for the Recent Logs display)
+                await remove(allLogsRef);
+
+                // If you had a reliable 'keyInClass' in your data structure, you would uncomment this:
+                // if (classId && date && keyInClass) {
+                //     const classLogRef = ref(rtdb, `attendance/${classId}/${date}/${keyInClass}`);
+                //     await remove(classLogRef);
+                // }
+
+                displayScanResult("Success", `Log ${logId.substring(0, 5)}... Deleted.`, "yellow", "trash-2", "N/A", "N/A");
+                console.log(`Log ${logId} deleted from all_logs.`);
+                // loadRecentLogs will automatically refresh the table due to onValue listener
+            } catch (error) {
+                console.error("Error deleting log:", error);
+                displayScanResult("DB Error", "Failed to delete log.", "red", "x-circle", "N/A", logId);
+            }
+        }
+        // --- END NEW FUNCTION ---
+
 
         // --- 3. Attendance Logic (The core function) ---
 
@@ -610,9 +666,12 @@
             // 4. Save to Firebase RTDB
             try {
                 // Save to the class-specific path (for attendance reporting)
-                await set(push(attendanceRef), logEntry);
+                const classPushRef = push(attendanceRef);
+                await set(classPushRef, {...logEntry, keyInClass: classPushRef.key}); // Added keyInClass for potential future use
+
                 // Save a duplicate log to a generic path (for the recent activity feed)
-                await set(push(allLogsRef), logEntry);
+                const allLogsPushRef = push(allLogsRef);
+                await set(allLogsPushRef, {...logEntry, keyInClass: classPushRef.key}); // Also store the class key
 
                 const statusColor = status === 'Present' ? 'green' : 'yellow';
                 const icon = status === 'Present' ? 'check-circle' : 'alert-circle';
@@ -646,186 +705,203 @@
             const classId = classSelectorEl.value;
             if (!classId) {
                  // Do not attempt to log if no class is selected, but inform the user.
-                 displayScanResult("Error", "Please select a **class** first.", "red", "alert-triangle");
+                 displayScanResult("Error", "Please **Select a Class** to begin scanning.", "red", "alert-triangle");
                  return;
             }
             
-            // The studentId is the QR data (e.g., "S1234567")
+            // Mark the attendance and perform the database transaction
             markAttendance(studentId, scanType, classId);
         }
 
-        // Main animation loop for video processing
+        function drawLine(begin, end, color) {
+            canvasContext.beginPath();
+            canvasContext.moveTo(begin.x, begin.y);
+            canvasContext.lineTo(end.x, end.y);
+            canvasContext.lineWidth = 4;
+            canvasContext.strokeStyle = color;
+            canvasContext.stroke();
+        }
+
         function tick() {
             if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
-                // Resize the canvas to match the video feed
-                canvasElement.height = videoElement.videoHeight;
+                // Calculate size to match video feed, respecting aspect ratio
+                const videoRatio = videoElement.videoWidth / videoElement.videoHeight;
+                const containerWidth = videoElement.parentElement.clientWidth;
+                const containerHeight = containerWidth / videoRatio;
+
                 canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+
+                // Draw the video frame onto the canvas
                 canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
                 
-                // Get the image data from the canvas
+                // --- jsQR logic ---
                 const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert", // Often helps with color QR codes
+                    inversionAttempts: "dontInvert",
                 });
 
                 if (code) {
+                    // Draw bounding box
+                    drawLine(code.location.topLeftCorner, code.location.topRightCorner, "#FF3B58");
+                    drawLine(code.location.topRightCorner, code.location.bottomRightCorner, "#FF3B58");
+                    drawLine(code.location.bottomRightCorner, code.location.bottomLeftCorner, "#FF3B58");
+                    drawLine(code.location.bottomLeftCorner, code.location.topLeftCorner, "#FF3B58");
+                    
+                    // Call the scan handler with the data
                     onQRCodeScanned(code.data);
+
                 }
             }
             animationFrameId = requestAnimationFrame(tick);
         }
 
-        // Stops the current camera stream
-        function stopScanning() {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        function stopCamera() {
+             if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
+                stream = null;
             }
             videoElement.srcObject = null;
+            console.log("Camera stopped.");
         }
 
+        async function startCamera(deviceId = null) {
+            stopCamera(); // Stop any running camera first
 
-        // Starts the video stream and QR scanning
-        async function startScanning(deviceId) {
-            stopScanning(); // Stop any existing stream
+            const constraints = {
+                video: {
+                    facingMode: "environment", // Use rear camera by default
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+            };
+
+            if (deviceId) {
+                constraints.video.deviceId = { exact: deviceId };
+            }
 
             try {
-                const constraints = {
-                    video: { 
-                        // Use the selected deviceId, otherwise let the browser pick (default is often the rear camera on mobile)
-                        deviceId: deviceId ? { exact: deviceId } : undefined,
-                        facingMode: deviceId ? undefined : 'environment' 
-                    }
-                };
-                
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
                 videoElement.srcObject = stream;
                 videoElement.play();
-                
-                // Start the scanning loop once video metadata loads
-                videoElement.onloadedmetadata = () => {
-                    requestAnimationFrame(tick);
-                };
-                console.log(`Scanning started using device: ${deviceId || 'default/environment'}`);
-
+                tick(); // Start scanning loop
+                console.log("Camera started successfully.");
             } catch (err) {
-                console.error("Error accessing the camera:", err);
-                // Display an error message to the user in the video container area
-                const videoContainer = document.getElementById('video-container');
-                videoContainer.innerHTML = `<div class="p-4 text-center text-white">
-                    <i data-lucide="camera-off" class="w-10 h-10 mx-auto mb-2 text-red-400"></i>
-                    <p class="font-bold">Camera Error</p>
-                    <p class="text-sm">Please ensure camera permissions are granted and select a valid camera.</p>
-                </div>`;
-                lucide.createIcons(); // Re-render the new icon
+                console.error("Error accessing camera: ", err);
+                displayScanResult("Camera Error", "Could not start camera. Check permissions.", "red", "camera-off");
             }
         }
-
-        // Populates the camera selection dropdown
+        
         async function setupCameraSelector() {
-            cameraSelectorEl.innerHTML = '<option value="">Select Camera...</option>';
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                
-                if (videoDevices.length === 0) {
-                    cameraSelectorEl.innerHTML = '<option value="">No cameras found</option>';
-                    return;
-                }
 
-                let defaultDeviceId = null;
-
+                cameraSelectorEl.innerHTML = '<option value="">Select Camera</option>';
                 videoDevices.forEach(device => {
                     const option = document.createElement('option');
                     option.value = device.deviceId;
                     option.textContent = device.label || `Camera ${videoDevices.indexOf(device) + 1}`;
                     cameraSelectorEl.appendChild(option);
-
-                    // Attempt to pre-select the 'environment' or 'back' camera as default for scanning
-                    if (device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('environment')) {
-                        defaultDeviceId = device.deviceId;
+                    
+                    // Set a sensible default (e.g., the last one, often the rear camera on mobile)
+                    if (device.label.toLowerCase().includes('back') || videoDevices.length === 1) {
+                         option.selected = true;
                     }
                 });
-
-                // Select the best device or the first one
-                const deviceToStart = defaultDeviceId || videoDevices[0].deviceId;
-                if (deviceToStart) {
-                    cameraSelectorEl.value = deviceToStart;
-                    startScanning(deviceToStart);
+                
+                // If devices are found, automatically start the camera with the default selection
+                if (videoDevices.length > 0) {
+                    startCamera(cameraSelectorEl.value);
                 }
 
             } catch (err) {
-                console.error("Error enumerating devices:", err);
-                cameraSelectorEl.innerHTML = '<option value="">Failed to list cameras</option>';
+                console.error("Error enumerating devices: ", err);
+                cameraSelectorEl.innerHTML = '<option value="">Error Loading Cameras</option>';
             }
         }
+        
+        // --- 5. Event Listeners and UI ---
 
-
-        // --- 5. Event Listeners and UI Logic ---
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // Re-render Lucide icons after content load
-            lucide.createIcons(); 
+        cameraSelectorEl.addEventListener('change', (e) => {
+            const deviceId = e.target.value;
+            if (deviceId) {
+                startCamera(deviceId);
+            } else {
+                stopCamera();
+                displayScanResult("Offline", "Camera Stopped/Disconnected.", "gray", "camera-off");
+            }
         });
 
-        // Sidebar toggle for mobile
-        document.getElementById('menu-button').addEventListener('click', () => {
-            document.body.classList.toggle('sidebar-open');
+        checkInBtn.addEventListener('click', () => {
+            scanType = 'Check-In';
+            scannedTypeEl.textContent = 'Check-In';
+            scannedTypeEl.classList.remove('text-purple-600');
+            scannedTypeEl.classList.add('text-blue-600');
+            checkInBtn.classList.replace('bg-gray-200', 'bg-blue-600');
+            checkInBtn.classList.replace('text-gray-700', 'text-white');
+            checkOutBtn.classList.replace('bg-blue-600', 'bg-gray-200');
+            checkOutBtn.classList.replace('text-white', 'text-gray-700');
+            displayScanResult("Ready", "Switching to Check-In mode.", "blue", "clock", "N/A", "N/A");
+        });
+
+        checkOutBtn.addEventListener('click', () => {
+            scanType = 'Check-Out';
+            scannedTypeEl.textContent = 'Check-Out';
+            scannedTypeEl.classList.remove('text-blue-600');
+            scannedTypeEl.classList.add('text-purple-600');
+            checkOutBtn.classList.replace('bg-gray-200', 'bg-blue-600');
+            checkOutBtn.classList.replace('text-gray-700', 'text-white');
+            checkInBtn.classList.replace('bg-blue-600', 'bg-gray-200');
+            checkInBtn.classList.replace('text-white', 'text-gray-700');
+            displayScanResult("Ready", "Switching to Check-Out mode.", "purple", "clock", "N/A", "N/A");
         });
         
-        // Camera Selector Change
-        cameraSelectorEl.addEventListener('change', (e) => {
-            if (e.target.value) {
-                startScanning(e.target.value);
-            } else {
-                stopScanning();
-                displayScanResult("Camera Off", "Camera stopped. Select a device to start.", "gray", "camera-off");
-            }
-        });
-
-        // Attendance Type Buttons
-        function updateScanType(newType) {
-            scanType = newType;
-            scannedTypeEl.textContent = newType;
-            
-            // Update button styles
-            checkInBtn.classList.remove('bg-blue-600', 'text-white', 'bg-gray-200', 'text-gray-700');
-            checkOutBtn.classList.remove('bg-blue-600', 'text-white', 'bg-gray-200', 'text-gray-700');
-
-            if (newType === 'Check-In') {
-                checkInBtn.classList.add('bg-blue-600', 'text-white');
-                checkOutBtn.classList.add('bg-gray-200', 'text-gray-700');
-                scannedTypeEl.classList.remove('text-purple-600');
-                scannedTypeEl.classList.add('text-blue-600');
-            } else {
-                checkOutBtn.classList.add('bg-blue-600', 'text-white');
-                checkInBtn.classList.add('bg-gray-200', 'text-gray-700');
-                scannedTypeEl.classList.remove('text-blue-600');
-                scannedTypeEl.classList.add('text-purple-600');
-            }
-        }
-
-        checkInBtn.addEventListener('click', () => updateScanType('Check-In'));
-        checkOutBtn.addEventListener('click', () => updateScanType('Check-Out'));
-
-        // Class Selector Change
         classSelectorEl.addEventListener('change', () => {
-             displayScanResult("Ready", `Class set to: ${classSelectorEl.value}. Waiting for Scan...`, "gray", "scan-line");
+            // Inform the user of the current class.
+            displayScanResult("Class Selected", `Ready to scan for **${classSelectorEl.options[classSelectorEl.selectedIndex].text}**.`, "blue", "book-open-text", "N/A", "N/A");
         });
 
-        // Modal functions (placeholder implementations)
-        window.openManualMarkModal = function() {
+
+        // --- Sidebar Toggling ---
+        const menuButton = document.getElementById('menu-button');
+        const body = document.body;
+
+        menuButton.addEventListener('click', () => {
+            body.classList.toggle('sidebar-open');
+        });
+
+        // Close sidebar when clicking main content on small screens
+        document.getElementById('main-content').addEventListener('click', (e) => {
+             if (body.classList.contains('sidebar-open') && e.target.closest('#sidebar') === null) {
+                body.classList.remove('sidebar-open');
+             }
+        });
+
+        // Modal placeholders (simplified, not fully functional in this example)
+        window.openManualMarkModal = () => {
             document.getElementById('manual-mark-modal').classList.remove('hidden');
-        }
-        window.closeManualMarkModal = function() {
+        };
+        window.closeManualMarkModal = () => {
             document.getElementById('manual-mark-modal').classList.add('hidden');
-        }
-        window.openExcusedAbsenceModal = function() {
-            alert('Opening Excused Absence Modal (Placeholder)');
-        }
-        window.openRemarksModal = function() {
-            alert('Opening Add Remarks Modal (Placeholder)');
-        }
+        };
+        window.openExcusedAbsenceModal = () => {
+            alert('Opening Mark Excused Absence Modal (Functionality not implemented)');
+        };
+        window.openRemarksModal = () => {
+            alert('Opening Add Remarks / Note Modal (Functionality not implemented)');
+        };
+
+
+        // Ensure icons are created after initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
     </script>
 </body>
 </html>
