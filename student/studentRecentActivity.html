@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recent Activity - Student Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-database-compat.js"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
+        .stat-icon { width: 1.5rem; height: 1.5rem; } 
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
+        #sidebar {
+            --sidebar-width: 16rem;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed;
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 50;
+        }
+        #backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        #main-content {
+            padding-top: 6rem;
+        }
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #backdrop {
+            opacity: 1;
+            visibility: visible;
+        }
+        .sidebar-open body {
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative;
+                transform: translateX(0);
+                flex-shrink: 0;
+            }
+            #main-content {
+                padding-top: 1.5rem;
+            }
+            #backdrop {
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <div class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 lg:hidden p-4">
+        <div class="flex items-center justify-between">
+            <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50">
+                <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
+            </button>
+            
+            <header class="flex-1 text-center -ml-1">
+                <h1 class="text-xl font-extrabold text-gray-800 truncate">Recent Activity</h1>
+                <p class="text-xs text-gray-500">Your latest attendance scans</p>
+            </header>
+            
+            <div class="w-8 h-1"></div> 
+        </div>
+    </div>
+    
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-between border-b border-gray-800">
+            <div class="flex items-center">
+                <i data-lucide="scan" class="text-blue-400 mr-2 stat-icon"></i>
+                <span class="text-xl font-bold text-blue-400">Student Portal</span>
+            </div>
+            <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+                <i data-lucide="x" class="lucide-icon"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="studentMyQRCode.html" class="nav-item">
+                <i data-lucide="qr-code" class="lucide-icon mr-3"></i>
+                My QR Code
+            </a>
+            <a href="studentAttendanceSummary.html" class="nav-item">
+                <i data-lucide="bar-chart-2" class="lucide-icon mr-3"></i>
+                Attendance Summary
+            </a>
+            <a href="studentRecentActivity.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="clock" class="lucide-icon mr-3"></i>
+                Recent Activity
+            </a>
+            <a href="studentProfile.html" class="nav-item">
+                <i data-lucide="user" class="lucide-icon mr-3"></i>
+                Profile Section
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>Student ID: <span id="user-id" class="break-all">S-20230001</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="hidden lg:block mb-6 pb-4 border-b border-gray-200 lg:text-left">
+            <h1 class="text-3xl font-extrabold text-gray-800">Recent Activity 🕒</h1>
+            <p class="text-gray-500">View your latest attendance scans and daily status.</p>
+        </header>
+
+        <section class="space-y-6 max-w-4xl mx-auto">
+            
+            <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Latest Scans</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-medium text-gray-500 uppercase">Last Check-In</p>
+                        <i data-lucide="log-in" class="lucide-icon text-green-500"></i>
+                    </div>
+                    <div class="mt-2">
+                        <p id="check-in-time" class="text-3xl font-extrabold text-gray-900">07:55 AM</p>
+                        <p id="check-in-date" class="text-xs text-gray-500 mt-1">Today, November 15, 2025</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-medium text-gray-500 uppercase">Last Check-Out</p>
+                        <i data-lucide="log-out" class="lucide-icon text-red-500"></i>
+                    </div>
+                    <div class="mt-2">
+                        <p id="check-out-time" class="text-3xl font-extrabold text-gray-900">03:05 PM</p>
+                        <p id="check-out-date" class="text-xs text-gray-500 mt-1">Today, November 15, 2025</p>
+                    </div>
+                </div>
+            </div>
+            
+            <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4 pt-4">Daily Summary</h2>
+
+            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm font-medium text-gray-500 uppercase">Daily Status</p>
+                    <span id="daily-status-icon" class="text-blue-500">
+                        <i data-lucide="check-circle" class="stat-icon"></i>
+                    </span>
+                </div>
+                <div class="mt-2 flex items-baseline">
+                    <p id="daily-status-text" class="text-2xl font-extrabold text-green-700 mr-2">ON TIME</p>
+                    <p class="text-sm text-gray-500">8 hours total attendance</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex items-center mb-3">
+                    <i data-lucide="clipboard-list" class="lucide-icon mr-2 text-yellow-600"></i>
+                    <p class="text-sm font-medium text-gray-700 uppercase">Notes from Teacher</p>
+                </div>
+                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p id="teacher-notes" class="text-sm text-gray-800 italic">
+                        "Great effort in the morning class. Please remember to check out on time next time."
+                    </p>
+                    <p class="text-xs text-gray-500 mt-2 text-right">Teacher L. Smith (11/14/2025)</p>
+                </div>
+                <p id="no-notes-message" class="text-sm text-gray-500 mt-2 hidden">No recent notes.</p>
+            </div>
+            
+        </section>
+
+    </div> 
+    
+    <script type="module">
+        // ------------------------------------------------------------------------------------------------
+        // ⚙️ Firebase Initialization and Realtime Database Setup
+        // ------------------------------------------------------------------------------------------------
+        // Note: We are importing from the module version of the Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-analytics.js";
+        // Import Realtime Database functions
+        import { getDatabase } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-database.js"; 
+
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com", // ⬅️ Realtime Database URL
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+
+        // Initialize Firebase services
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        
+        // Initialize the Realtime Database Service
+        const database = getDatabase(app); 
+        console.log("Firebase App, Analytics, and Realtime Database initialized.");
+        // The 'database' variable is now ready to be used for data operations (e.g., ref, onValue, set, etc.)
+
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View (Unchanged)
+        // ------------------------------------------------------------------------------------------------
+        lucide.createIcons();
+
+        const backdrop = document.getElementById('backdrop');
+        const menuButton = document.getElementById('menu-button');
+        const sidebarCloseButton = document.getElementById('sidebar-close-button');
+        const body = document.body;
+
+        const toggleSidebar = () => {
+            const isOpen = body.classList.toggle('sidebar-open');
+            const icon = menuButton.querySelector('.lucide-icon');
+            // This toggle is slightly cleaner if we don't swap the icon in the mobile header
+            // icon.setAttribute('data-lucide', isOpen ? 'x' : 'menu'); 
+            lucide.createIcons();
+        };
+        
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar);
+        sidebarCloseButton.addEventListener('click', toggleSidebar);
+
+
+        // ------------------------------------------------------------------------------------------------
+        // Initialize Data (Simulate fetching from Firebase/Server)
+        // ------------------------------------------------------------------------------------------------
+        
+        function initializeStudentData() {
+            console.log("Student Firebase initialized and attempting to fetch recent activity...");
+            
+            // 1. Simulate Authentication Success
+            document.getElementById('auth-status').textContent = "Authenticated";
+            document.getElementById('auth-status').classList.remove('text-yellow-500');
+            document.getElementById('auth-status').classList.add('text-green-500');
+
+            // 2. Simulate Data Fetch (replace this block with Realtime Database logic)
+            const recentActivity = {
+                checkInTime: '07:55 AM',
+                checkInDate: 'Today, November 15, 2025',
+                checkOutTime: '03:05 PM',
+                checkOutDate: 'Today, November 15, 2025',
+                dailyStatus: 'ON TIME', // Could be 'LATE', 'ABSENT', 'ON TIME'
+                notes: `"Great effort in the morning class. Please remember to check out on time next time."`,
+                noteSource: 'Teacher L. Smith (11/14/2025)',
+                isLate: false,
+                isAbsent: false
+            };
+
+            // 3. Update DOM with Data
+            document.getElementById('check-in-time').textContent = recentActivity.checkInTime;
+            document.getElementById('check-in-date').textContent = recentActivity.checkInDate;
+            document.getElementById('check-out-time').textContent = recentActivity.checkOutTime;
+            document.getElementById('check-out-date').textContent = recentActivity.checkOutDate;
+            document.getElementById('daily-status-text').textContent = recentActivity.dailyStatus;
+            
+            const statusText = document.getElementById('daily-status-text');
+            const statusIcon = document.getElementById('daily-status-icon');
+
+            if (recentActivity.dailyStatus === 'LATE') {
+                statusText.classList.remove('text-green-700');
+                statusText.classList.add('text-orange-600');
+                statusIcon.innerHTML = `<i data-lucide="alert-triangle" class="stat-icon"></i>`;
+            } else if (recentActivity.dailyStatus === 'ABSENT') {
+                statusText.classList.remove('text-green-700');
+                statusText.classList.add('text-red-600');
+                statusIcon.innerHTML = `<i data-lucide="x-octagon" class="stat-icon"></i>`;
+            }
+
+            if (recentActivity.notes) {
+                document.getElementById('teacher-notes').textContent = recentActivity.notes;
+                document.querySelector('.bg-yellow-50 + .text-xs').textContent = recentActivity.noteSource;
+            } else {
+                // If no notes, show the "No notes" message (currently hidden)
+                document.getElementById('teacher-notes').parentElement.classList.add('hidden');
+                document.getElementById('no-notes-message').classList.remove('hidden');
+            }
+            lucide.createIcons(); // Re-render icons after dynamic change
+
+        }
+
+        initializeStudentData();
+        
+    </script>
+</body>
+</html>

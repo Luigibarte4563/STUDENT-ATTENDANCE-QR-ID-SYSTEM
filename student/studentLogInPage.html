@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Login | QR ID System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+    <style>
+        /* Custom styles for the login page */
+        .login-bg {
+            background-color: #1f2937; /* Dark gray background */
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="login-bg min-h-screen flex items-center justify-center p-4">
+
+    <div id="login-card" class="card w-full max-w-sm p-8 space-y-6">
+        <div class="text-center">
+            <i data-lucide="scan" class="w-12 h-12 text-blue-600 mx-auto mb-2"></i>
+            <h1 class="text-2xl font-bold text-gray-900">Student Login</h1>
+            <p class="text-sm text-gray-500">Enter your Student ID and PIN to access.</p>
+        </div>
+
+        <form id="student-login-form" class="space-y-4">
+            <div>
+                <label for="login-studentId" class="block text-sm font-medium text-gray-700">Student ID</label>
+                <input type="text" id="login-studentId" required 
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="e.g., 20230001">
+            </div>
+            
+            <div>
+                <label for="login-pin" class="block text-sm font-medium text-gray-700">PIN (Last 4 Digits of ID)</label>
+                <input type="password" id="login-pin" required maxlength="4"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="e.g., 0001">
+            </div>
+
+            <button type="submit" id="login-btn" 
+                    class="w-full flex justify-center items-center px-4 py-2 font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                <i data-lucide="log-in" class="w-5 h-5 mr-2"></i>
+                Log In
+            </button>
+        </form>
+
+        <div id="login-status" class="text-center text-sm font-medium hidden"></div>
+    </div>
+
+    <div id="message-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 id="message-modal-title" class="text-lg font-bold text-gray-900 mb-2"></h3>
+            <p id="message-modal-content" class="text-sm text-gray-500 mb-4"></p>
+            <div class="flex justify-end">
+                <button onclick="closeModal('message-modal')"
+                        class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="student-dashboard" class="card w-full max-w-4xl p-8 space-y-6 hidden">
+        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+            <i data-lucide="user-circle" class="w-8 h-8 mr-3 text-green-600"></i>
+            Welcome, <span id="dashboard-student-name" class="ml-2 text-blue-600"></span>!
+        </h1>
+        <p class="text-lg text-gray-600">
+            You are logged in to the Student Attendance System. Your ID is: 
+            <span id="dashboard-student-id" class="font-mono bg-gray-100 p-1 rounded"></span>
+        </p>
+
+        <h2 class="text-xl font-semibold mt-6">Your Details:</h2>
+        <ul class="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>Section:</strong> <span id="dashboard-student-section"></span></li>
+            <li><strong>Full Name:</strong> <span id="dashboard-student-fullname"></span></li>
+        </ul>
+
+        <div class="mt-8 pt-4 border-t">
+            <button onclick="logout()" 
+                    class="flex justify-center items-center px-4 py-2 font-semibold rounded-xl text-white bg-red-600 hover:bg-red-700 transition duration-150 shadow-md">
+                <i data-lucide="log-out" class="w-5 h-5 mr-2"></i>
+                Log Out
+            </button>
+        </div>
+    </div>
+
+<script type="module">
+    // Re-render Lucide icons after the script loads
+    lucide.createIcons();
+
+    // Utility function (reused from your original script)
+    window.closeModal = function(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+
+    /** Shows a custom message modal (reused from your original script) */
+    function showMessage(title, content) {
+        document.getElementById('message-modal-title').textContent = title;
+        document.getElementById('message-modal-content').textContent = content;
+        document.getElementById('message-modal').classList.remove('hidden');
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // REQUIRED FIREBASE IMPORTS (from your script)
+    // ------------------------------------------------------------------------------------------------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+    
+    // Global Variables (from your script)
+    const appId = 'studentattendanceqridsys'; 
+    const firebaseConfig = {
+        apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+        authDomain: "studentattendanceqridsys.firebaseapp.com",
+        databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com", 
+        projectId: "studentattendanceqridsys",
+        storageBucket: "studentattendanceqridsys.firebasestorage.app",
+        messagingSenderId: "666194808312",
+        appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+        measurementId: "G-XFK13STCJK"
+    };
+
+    let app, auth, rtdb, userId = null; 
+    let studentsData = []; // Global array to hold current student data
+
+    // ------------------------------------------------------------------------------------------------
+    // FIREBASE INITIALIZATION AND DATA LOADING
+    // ------------------------------------------------------------------------------------------------
+
+    /** Initializes Firebase and authenticates anonymously to load the student list. */
+    async function initializeFirebase() {
+        try {
+            app = initializeApp(firebaseConfig, appId);
+            auth = getAuth(app);
+            rtdb = getDatabase(app); 
+
+            // Authenticate anonymously (required to read data if RTDB rules allow authenticated users)
+            if (!auth.currentUser) {
+                 // Sign in anonymously to ensure an authenticated state for RTDB read rules
+                await signInAnonymously(auth);
+            }
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    loadStudents(); // Load data once authenticated
+                } else {
+                    showMessage("Authentication Required", "Please wait while the system authenticates to load the student list.");
+                }
+            });
+
+        } catch (error) {
+            console.error("Firebase initialization or sign-in failed:", error);
+            showMessage("System Error", `Could not connect to the database. Error: ${error.message}`);
+        }
+    }
+
+    /** Loads and listens for real-time student updates (only needed once) */
+    function loadStudents() {
+        const studentsRef = ref(rtdb, 'students');
+
+        // onValue sets up a real-time listener for the entire 'students' path
+        onValue(studentsRef, (snapshot) => {
+            studentsData = [];
+            const data = snapshot.val();
+            if (data) {
+                // Populate the global studentsData array
+                Object.keys(data).forEach((key) => {
+                    const student = { id: key, ...data[key] };
+                    studentsData.push(student);
+                });
+                console.log(`Student data loaded: ${studentsData.length} records.`);
+                document.getElementById('login-status').textContent = "Database connected. Ready to log in.";
+                document.getElementById('login-status').classList.remove('hidden');
+                document.getElementById('login-status').classList.add('text-green-600');
+            } else {
+                 document.getElementById('login-status').textContent = "Database is empty.";
+                 document.getElementById('login-status').classList.remove('hidden');
+                 document.getElementById('login-status').classList.add('text-yellow-600');
+            }
+        }, (error) => {
+            console.error("Error loading students from RTDB:", error);
+            showMessage("Database Error", "Failed to load student data. Check console for details.");
+            document.getElementById('login-status').textContent = "Database error. Cannot log in.";
+            document.getElementById('login-status').classList.remove('hidden');
+            document.getElementById('login-status').classList.add('text-red-600');
+        });
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // LOGIN LOGIC
+    // ------------------------------------------------------------------------------------------------
+
+    document.getElementById('student-login-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const studentId = document.getElementById('login-studentId').value.trim();
+        const pin = document.getElementById('login-pin').value.trim();
+        
+        if (!studentId || !pin) {
+            showMessage("Validation Error", "Please enter both your Student ID and PIN.");
+            return;
+        }
+
+        // 1. Find the student by ID
+        const student = studentsData.find(s => s.studentId === studentId);
+
+        if (!student) {
+            showMessage("Login Failed", "The Student ID you entered was not found.");
+            return;
+        }
+
+        // 2. Simple PIN validation (using last 4 digits of ID)
+        // NOTE: This is a *very* basic and insecure method. 
+        // A real system should use Firebase Authentication with Email/Password 
+        // or a dedicated password/hashed-pin field in the student data.
+        const expectedPin = student.studentId.slice(-4); 
+
+        if (pin === expectedPin) {
+            // Successful Login
+            renderDashboard(student);
+        } else {
+            showMessage("Login Failed", "Invalid PIN for the given Student ID.");
+        }
+    });
+
+    /** Renders the student's dashboard after successful login */
+    function renderDashboard(student) {
+        // Hide Login, Show Dashboard
+        document.getElementById('login-card').classList.add('hidden');
+        document.getElementById('student-dashboard').classList.remove('hidden');
+        
+        // Populate dashboard details
+        const fullName = `${student.firstName || ''} ${student.lastName || ''}`;
+        document.getElementById('dashboard-student-name').textContent = student.firstName || 'Student';
+        document.getElementById('dashboard-student-id').textContent = student.studentId;
+        document.getElementById('dashboard-student-section').textContent = student.section || 'N/A';
+        document.getElementById('dashboard-student-fullname').textContent = fullName;
+
+        // Re-render icons on the dashboard
+        lucide.createIcons();
+    }
+
+    /** Logs the student out (hides dashboard, shows login) */
+    window.logout = function() {
+        document.getElementById('student-dashboard').classList.add('hidden');
+        document.getElementById('login-card').classList.remove('hidden');
+        document.getElementById('student-login-form').reset();
+        showMessage("Logged Out", "You have been successfully logged out.");
+    }
+
+    // Start the whole process
+    initializeFirebase();
+
+</script>
+</body>
+</html>

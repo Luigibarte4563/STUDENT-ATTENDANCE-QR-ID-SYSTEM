@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Section - Student Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .info-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
+        .stat-icon { width: 1.5rem; height: 1.5rem; } 
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
+        #sidebar {
+            --sidebar-width: 16rem;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed;
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 50;
+        }
+        #backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        #main-content {
+            padding-top: 6rem;
+        }
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #backdrop {
+            opacity: 1;
+            visibility: visible;
+        }
+        .sidebar-open body {
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative;
+                transform: translateX(0);
+                flex-shrink: 0;
+            }
+            #main-content {
+                padding-top: 1.5rem;
+            }
+            #backdrop {
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+        }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-database-compat.js"></script>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <div class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 lg:hidden p-4">
+        <div class="flex items-center justify-between">
+            <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50">
+                <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
+            </button>
+            
+            <header class="flex-1 text-center -ml-1">
+                <h1 class="text-xl font-extrabold text-gray-800 truncate">Profile Section</h1>
+                <p class="text-xs text-gray-500">Your Personal & Academic Details</p>
+            </header>
+            
+            <div class="w-8 h-1"></div> 
+        </div>
+    </div>
+    
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-between border-b border-gray-800">
+            <div class="flex items-center">
+                <i data-lucide="scan" class="text-blue-400 mr-2 stat-icon"></i>
+                <span class="text-xl font-bold text-blue-400">Student Portal</span>
+            </div>
+            <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+                <i data-lucide="x" class="lucide-icon"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            
+            <a href="studentMyQRCode.html" class="nav-item">
+                <i data-lucide="qr-code" class="lucide-icon mr-3"></i>
+                My QR Code
+            </a>
+            <a href="studentAttendanceSummary.html" class="nav-item">
+                <i data-lucide="calendar-check" class="lucide-icon mr-3"></i>
+                Attendance Summary 
+            </a>
+            <a href="studentRecentActivity.html" class="nav-item">
+                <i data-lucide="list-checks" class="lucide-icon mr-3"></i>
+                Recent Activity </a>
+            <a href="studentProfile.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700">
+                <i data-lucide="user" class="lucide-icon mr-3"></i>
+                Profile Section </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>Student ID: <span id="user-id" class="break-all">S-20230001</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="hidden lg:block mb-6 pb-4 border-b border-gray-200 lg:text-left">
+            <h1 class="text-3xl font-extrabold text-gray-800">Profile Section 👤</h1>
+            <p class="text-gray-500">Your personal and academic details.</p>
+        </header>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-2 bg-white p-6 sm:p-8 rounded-xl info-card shadow-xl">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i data-lucide="graduation-cap" class="stat-icon text-blue-600 mr-2"></i>
+                    Student Details
+                </h2>
+                <div class="space-y-4">
+                    
+                    <div class="border-b pb-2">
+                        <p class="text-sm font-medium text-gray-500">Full Name</p>
+                        <p id="full-name" class="text-lg font-semibold text-gray-900">Juan Dela Cruz</p>
+                    </div>
+
+                    <div class="border-b pb-2">
+                        <p class="text-sm font-medium text-gray-500">Student ID</p>
+                        <p id="student-id" class="text-lg font-semibold text-gray-900">S-20230001</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="border-b pb-2">
+                            <p class="text-sm font-medium text-gray-500">Grade Level</p>
+                            <p id="grade-level" class="text-lg font-semibold text-gray-900">Grade 10</p>
+                        </div>
+
+                        <div class="border-b pb-2">
+                            <p class="text-sm font-medium text-gray-500">Section</p>
+                            <p id="section" class="text-lg font-semibold text-gray-900">Mabait</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <p class="text-sm font-medium text-gray-500">Enrollment Status</p>
+                        <span id="enrollment-status" class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                            <i data-lucide="check-circle" class="lucide-icon w-4 h-4 mr-1"></i>
+                            Active
+                        </span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="lg:col-span-1 bg-white p-6 sm:p-8 rounded-xl info-card shadow-xl flex flex-col items-center text-center">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i data-lucide="scan" class="stat-icon text-red-600 mr-2"></i>
+                    My Quick Scan Code
+                </h2>
+                
+                <div class="flex-shrink-0 w-48 h-48 border-4 border-gray-200 rounded-lg p-2 mb-4">
+                    <img src="https://via.placeholder.com/200x200?text=Student+QR+Code" alt="QR Code" class="w-full h-full object-contain">
+                </div>
+
+                <p class="text-sm text-gray-500 mb-4">Use this code for quick attendance check-in/out.</p>
+
+                <a href="studentMyQRCode.html" class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
+                    <i data-lucide="eye" class="lucide-icon mr-2"></i>
+                    View Full QR Code Page
+                </a>
+            </div>
+
+        </section>
+
+    </div> 
+    
+    <script type="module">
+        // ------------------------------------------------------------------------------------------------
+        // 🚀 Firebase Initialization and Realtime Database Setup
+        // ------------------------------------------------------------------------------------------------
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-analytics.js";
+        // Import for Realtime Database
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-database.js"; 
+
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        
+        // Initialize Realtime Database Service
+        const database = getDatabase(app); 
+        console.log("Firebase App, Analytics, and Realtime Database initialized.");
+
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View (Unchanged)
+        // ------------------------------------------------------------------------------------------------
+        lucide.createIcons();
+
+        const backdrop = document.getElementById('backdrop');
+        const menuButton = document.getElementById('menu-button');
+        const sidebarCloseButton = document.getElementById('sidebar-close-button');
+        const body = document.body;
+
+        const toggleSidebar = () => {
+            const isOpen = body.classList.toggle('sidebar-open');
+            const icon = menuButton.querySelector('.lucide-icon');
+            if (icon) {
+                icon.setAttribute('data-lucide', isOpen ? 'x' : 'menu');
+                lucide.createIcons();
+            }
+        };
+        
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar);
+        sidebarCloseButton.addEventListener('click', toggleSidebar);
+
+        // ------------------------------------------------------------------------------------------------
+        // Simulate Data Loading for Profile
+        // ------------------------------------------------------------------------------------------------
+        
+        function initializeProfileData() {
+            console.log("Student Profile initialized and attempting to fetch data...");
+            // Simulate Authentication Success
+            document.getElementById('auth-status').textContent = "Authenticated";
+            document.getElementById('auth-status').classList.remove('text-yellow-500');
+            document.getElementById('auth-status').classList.add('text-green-500');
+            
+            // TODO: Add Realtime Database fetching logic here (e.g., to load student data)
+            // Example of a database call:
+            // const studentProfileRef = ref(database, 'students/' + document.getElementById('user-id').textContent);
+            // onValue(studentProfileRef, (snapshot) => { /* update UI with real data */ });
+        }
+
+        initializeProfileData();
+        
+    </script>
+</body>
+</html>
