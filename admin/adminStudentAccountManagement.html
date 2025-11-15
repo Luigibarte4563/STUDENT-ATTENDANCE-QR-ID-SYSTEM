@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | Student Account Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            border-radius: 0.75rem; /* rounded-xl */
+            transition: background-color 0.15s, transform 0.1s;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        .nav-item.active {
+            background-color: #1f2937; /* A darker gray for active state */
+            color: #60a5fa; /* blue-400 */
+            font-weight: 600;
+        }
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
+        .stat-icon { width: 1.5rem; height: 1.5rem; } 
+
+        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
+        #sidebar {
+            --sidebar-width: 16rem;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed;
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 50;
+            width: 16rem; /* Set explicit width for the sidebar */
+        }
+        
+        #backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        #top-header {
+            position: fixed; /* Fixed position for mobile */
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 30;
+        }
+        
+        /* Main content padding adjustment to account for the fixed header on mobile */
+        #main-content {
+            padding-top: 6rem; /* Space for the fixed header */
+            flex-grow: 1;
+        }
+        
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #backdrop {
+            opacity: 1;
+            visibility: visible;
+        }
+        .sidebar-open body {
+            overflow: hidden; /* Prevent scrolling when sidebar is open */
+        }
+
+        @media (min-width: 1024px) { /* lg breakpoint - used instead of md-70 for better spacing */
+            /* 1. Desktop Layout */
+            .main-layout {
+                display: flex; 
+                min-height: 100vh;
+            }
+            body {
+                display: block;
+            }
+
+            /* 2. Sidebar Desktop Fixes */
+            #sidebar {
+                position: sticky; 
+                top: 0; 
+                bottom: 0;
+                transform: translateX(0); 
+                flex-shrink: 0; 
+                height: 100vh; 
+            }
+            
+            /* 3. Header Desktop Fixes (Header is now inside main-content on desktop) */
+            #top-header {
+                position: static; 
+                left: auto;
+                right: auto;
+            }
+            
+            /* 4. Main Content Desktop Fixes */
+            #main-content {
+                padding-top: 2rem; 
+                margin-left: 0; 
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50"> 
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <div class="main-layout">
+        <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col shadow-xl">
+            <div class="p-6 flex items-center justify-between border-b border-gray-800">
+                <div class="flex items-center">
+                    <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+                    <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+                </div>
+                <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+                    <i data-lucide="x" class="lucide-icon"></i>
+                </button>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+                <a href="adminDashboard.html" class="nav-item"><i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>Dashboard Home</a>
+                <a href="adminLiveAttendanceMonitor.html" class="nav-item"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
+                <a href="adminStudentManagement.html" class="nav-item"><i data-lucide="users" class="lucide-icon mr-3"></i>Student Management</a>
+                <a href="#" class="nav-item active"><i data-lucide="user-cog" class="lucide-icon mr-3"></i>Student Account Management</a>
+                <a href="adminTeacherManagement.html" class="nav-item"><i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>Teacher Management</a>
+                <a href="adminAttendanceRecords.html" class="nav-item"><i data-lucide="calendar-check" class="lucide-icon mr-3"></i>Attendance Records</a>
+                <a href="adminReportsAndAnalytics.html" class="nav-item"><i data-lucide="bar-chart-3" class="lucide-icon mr-3"></i>Reports & Analytics</a>
+                <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line" class="lucide-icon mr-3"></i>QR Code Manager</a>
+                <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings" class="lucide-icon mr-3"></i>System Settings</a>
+            </nav>
+            
+            <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+                <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+                <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+            </div>
+        </aside>
+
+        <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20 lg:pt-8">
+            
+            <div id="top-header" class="bg-gray-50 border-b lg:border-none p-4 lg:p-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center lg:hidden">
+                        <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50 mr-3">
+                            <i data-lucide="menu" class="lucide-icon"></i>
+                        </button>
+                        <div class="flex flex-col">
+                            <h1 class="text-xl font-extrabold text-gray-800 truncate">Account Management</h1>
+                            <p class="text-xs text-gray-500">Student Panel</p>
+                        </div>
+                    </div>
+
+                    <header class="hidden lg:block">
+                        <h1 class="text-3xl font-extrabold text-gray-800 mb-2 flex items-center">
+                            <i data-lucide="user-cog" class="stat-icon mr-3 text-blue-600"></i> 
+                            Student Account Management
+                        </h1>
+                        <p class="text-sm text-gray-500">Manage and control student login access and status.</p>
+                    </header>
+                    
+                    </div>
+            </div>
+            
+            <div class="mt-4 lg:mt-6">
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                        <h2 class="text-2xl font-semibold text-gray-700 mb-4 md:mb-0 flex items-center">
+                            All Student Accounts 
+                            <span id="account-count" class="ml-3 px-3 py-1 text-sm font-bold bg-blue-100 text-blue-600 rounded-full">0</span>
+                        </h2>
+                        
+                        <div class="flex flex-wrap gap-3 w-full md:w-auto">
+                            <input type="text" id="search-input" onkeyup="filterAccounts()" placeholder="Search ID, Name, or Email..." 
+                                class="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 flex-1 min-w-[200px]">
+                            
+                            <button onclick="loadAccounts()" class="action-btn bg-blue-600 hover:bg-blue-700 text-white">
+                                <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Refresh List
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto border border-gray-100 rounded-xl">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student ID</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Full Name</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Section</th> 
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email/Username</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                    <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accounts-table-body" class="bg-white divide-y divide-gray-100">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="empty-state" class="hidden text-center p-12 text-gray-500">
+                        <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-4 text-gray-400"></i>
+                        <h3 class="text-xl font-semibold">No Accounts Found</h3>
+                        <p class="mt-2">There are no student account records matching your filters. Try refreshing the list.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
+            <h3 id="message-modal-title" class="text-xl font-bold mb-3 text-gray-800">Message</h3>
+            <p id="message-modal-content" class="text-gray-600 mb-6"></p>
+            <button onclick="closeModal('message-modal')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition">Close</button>
+        </div>
+    </div>
+
+    <div id="reset-password-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h3 class="text-2xl font-bold mb-4 text-gray-800 flex items-center">
+                <i data-lucide="key" class="w-6 h-6 mr-2 text-blue-600"></i> Reset Password
+            </h3>
+            <p class="text-sm text-red-600 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+                <i data-lucide="alert-triangle" class="w-4 h-4 inline-block mr-2"></i> 
+                **Security Notice:** Password changes for *other* users require the Firebase Admin SDK on a secure server. This form simulates the action by updating the password placeholder in the Realtime Database.
+            </p>
+            <form id="reset-password-form">
+                <input type="hidden" id="reset-doc-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">Student ID:</label>
+                    <p id="reset-student-id" class="mt-1 p-2 border border-gray-200 rounded-lg bg-gray-50 font-semibold"></p>
+                </div>
+                <div class="mb-4">
+                    <label for="new-password" class="block text-sm font-medium text-gray-700">New Password (Min 6 chars):</label>
+                    <input type="password" id="new-password" required minlength="6"
+                        class="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm New Password:</label>
+                    <input type="password" id="confirm-password" required
+                        class="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p id="password-match-error" class="text-red-500 text-xs mt-1 hidden">Passwords do not match.</p>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('reset-password-modal')" class="action-btn bg-gray-200 hover:bg-gray-300 text-gray-700">Cancel</button>
+                    <button type="submit" class="action-btn bg-blue-600 hover:bg-blue-700 text-white">
+                        <i data-lucide="check" class="w-4 h-4 mr-2"></i> Set New Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script type="module">
+        // Ensure Lucide icons are rendered after the script loads
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // UI INTERACTION LOGIC
+        // ------------------------------------------------------------------------------------------------
+        
+        // Toggle Sidebar for Mobile View
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        const backdrop = document.getElementById('backdrop');
+        const body = document.body;
+
+        function toggleSidebar() {
+            body.classList.toggle('sidebar-open');
+        }
+
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar); // Close sidebar when backdrop is clicked
+        document.getElementById('sidebar-close-button').addEventListener('click', toggleSidebar); // Close button in sidebar
+        
+        // ------------------------------------------------------------------------------------------------
+        // FIREBASE IMPORTS
+        // ------------------------------------------------------------------------------------------------
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        // **REALTIME DATABASE IMPORTS**
+        import { 
+            getDatabase, 
+            ref, 
+            onValue, 
+            set, 
+            get,
+            child 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+        
+        // Global Variables
+        const appId = 'studentattendanceqridsys';
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+
+        let app, auth, rtdb, userId = null;
+        let isAuthReady = false;
+        let combinedData = [];
+
+        // --- Utility Functions ---
+
+        function showMessage(title, content) {
+            document.getElementById('message-modal-title').textContent = title;
+            document.getElementById('message-modal-content').innerHTML = content;
+            document.getElementById('message-modal').classList.remove('hidden');
+        }
+
+        window.closeModal = function(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            // Re-render lucide icons in case the modal used them
+            lucide.createIcons();
+        }
+
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig, appId);
+                auth = getAuth(app);
+                rtdb = getDatabase(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        userId = user.uid;
+                        userIdEl.textContent = userId;
+                    } else {
+                        statusEl.textContent = "Anonymous";
+                        statusEl.classList.remove('text-yellow-500', 'text-green-500');
+                        statusEl.classList.add('text-red-500');
+                        userId = null;
+                        userIdEl.textContent = 'Unauthenticated/Guest'; 
+                    }
+                    isAuthReady = true;
+
+                    if (userId) {
+                        loadAccounts(); 
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                });
+                
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+                
+            } catch (error) {
+                console.error("Firebase initialization or sign-in failed:", error);
+                document.getElementById('auth-status').textContent = "ERROR";
+                document.getElementById('auth-status').classList.remove('text-yellow-500');
+                document.getElementById('auth-status').classList.add('text-red-500');
+            }
+        }
+        
+        // --- Data Management Logic ---
+
+        function getStudentsRef() {
+            return ref(rtdb, 'students');
+        }
+        
+        function getStudentAccountsRef() {
+            return ref(rtdb, 'studentAccounts');
+        }
+        
+        /** Loads and merges Student and Account data */
+        window.loadAccounts = async function() {
+            if (!isAuthReady || !rtdb) {
+                showMessage("Initialization", "Firebase is not yet ready. Please wait.");
+                return;
+            }
+
+            try {
+                // 1. Fetch Student Details (for Name, ID, Section)
+                const studentsSnapshot = await get(getStudentsRef());
+                const studentsData = studentsSnapshot.val() || {};
+                
+                // 2. Set up real-time listener for Account Status
+                onValue(getStudentAccountsRef(), (accountsSnapshot) => {
+                    const accountsData = accountsSnapshot.val() || {};
+                    combinedData = [];
+                    
+                    // 3. Merge data based on the unique Firebase Key (student's ID)
+                    Object.keys(studentsData).forEach((key) => {
+                        const student = studentsData[key];
+                        const account = accountsData[key] || {}; 
+
+                        combinedData.push({ 
+                            id: key,
+                            studentId: student.studentId || 'N/A',
+                            firstName: student.firstName || '',
+                            lastName: student.lastName || '',
+                            name: `${student.lastName || ''}, ${student.firstName || ''}`,
+                            section: student.section || 'Unassigned',
+                            email: account.email || `${student.studentId || 'N/A'}@school.edu`,
+                            status: account.status || 'Active',
+                            // Add password info for display (THIS IS THE FAKE PASSWORD VALUE)
+                            passwordDisplay: account.passwordDisplay || 'Hashed/Hidden' 
+                        });
+                    });
+
+                    // Initial render of all combined data
+                    renderAccounts(combinedData);
+                });
+
+            } catch (error) {
+                console.error("Error loading combined data from RTDB:", error);
+                showMessage("Database Error", "Failed to load student and account data. Check console for details.");
+            }
+        }
+
+        // --- UI Rendering and Filtering ---
+
+        /** Filters the currently loaded data based on the search input */
+        window.filterAccounts = function() {
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+            
+            const filteredData = combinedData.filter(account => {
+                const searchFields = [
+                    account.studentId, 
+                    account.name, 
+                    account.email,
+                    account.section
+                ];
+                
+                return searchFields.some(field => field && field.toLowerCase().includes(searchText));
+            });
+
+            renderAccounts(filteredData);
+        }
+
+        /** Renders the account data into the HTML table */
+        function renderAccounts(data) {
+            const tableBody = document.getElementById('accounts-table-body');
+            const accountCountEl = document.getElementById('account-count');
+            const emptyState = document.getElementById('empty-state');
+            tableBody.innerHTML = '';
+            accountCountEl.textContent = data.length;
+
+            if (data.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            // Sort by studentId for readability
+            data.sort((a, b) => (a.studentId || '').localeCompare(b.studentId || ''));
+
+            data.forEach((account) => {
+                const row = tableBody.insertRow();
+                row.className = 'hover:bg-gray-50 transition-colors duration-100';
+
+                const statusColor = account.status === 'Active' 
+                    ? 'bg-green-100 text-green-700 border-green-200' 
+                    : 'bg-red-100 text-red-700 border-red-200';
+                
+                const toggleAction = account.status === 'Active' 
+                    ? `toggleAccountStatus('${account.id}', 'Suspended', '${account.studentId}')` 
+                    : `toggleAccountStatus('${account.id}', 'Active', '${account.studentId}')`;
+                
+                const toggleLabel = account.status === 'Active' ? 'Suspend' : 'Activate';
+                const toggleIcon = account.status === 'Active' ? 'lock' : 'unlock';
+                const toggleColor = account.status === 'Active' ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50';
+
+                row.innerHTML = `
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${account.studentId}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700">${account.name}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700">${account.section}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700">${account.email}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm">
+                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full border ${statusColor}">
+                            ${account.status}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="viewPasswordDisplay('${account.id}', '${account.studentId}', '${account.passwordDisplay}')" title="View Password (Display Only)" class="text-gray-600 hover:bg-gray-50 p-2 rounded-full transition duration-150">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="${toggleAction}" title="${toggleLabel} Account" class="${toggleColor} p-2 rounded-full transition duration-150">
+                                <i data-lucide="${toggleIcon}" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="openResetPasswordModal('${account.id}', '${account.studentId}')" title="Reset Password" class="text-blue-600 hover:bg-blue-50 p-2 rounded-full transition duration-150">
+                                <i data-lucide="key" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+            });
+
+            lucide.createIcons(); // Re-render icons after adding new rows
+        }
+
+        // --- Action Logic ---
+
+        window.toggleAccountStatus = async function(docId, newStatus, studentId) {
+            if (!confirm(`Are you sure you want to change the status of student ID ${studentId} to ${newStatus}?`)) {
+                return;
+            }
+
+            try {
+                const accountRef = ref(rtdb, `studentAccounts/${docId}`);
+                await set(accountRef, { status: newStatus, updatedAt: new Date().toISOString() }, { merge: true });
+                showMessage("Success", `Account for **${studentId}** successfully set to **${newStatus}**.`);
+            } catch (error) {
+                console.error("Error toggling account status:", error);
+                showMessage("Error", "Failed to update account status. Check the console.");
+            }
+        }
+        
+        /**
+         * Simulates 'viewing' a password by showing the non-hashed display field.
+         * NOTE: In a real system, this is not possible!
+         */
+        window.viewPasswordDisplay = function(docId, studentId, passwordDisplay) {
+            let content;
+            if (passwordDisplay === 'Hashed/Hidden' || !passwordDisplay) {
+                content = `The actual password for student ID **${studentId}** is securely **hashed** by Firebase and cannot be viewed by the administrator.`;
+            } else {
+                content = `**Security Alert (Development Only!):** The actual password is **hashed** and cannot be retrieved. This displayed value is for **demo purposes only** and is stored as a non-secure field in the database. <br><br> **Display Password:** <span class="font-mono bg-yellow-100 text-yellow-800 p-1 rounded-md">${passwordDisplay}</span>`;
+            }
+
+            showMessage("Account Password Status", content);
+        }
+
+        /**
+         * Opens the modal for resetting a password.
+         */
+        window.openResetPasswordModal = function(docId, studentId) {
+            document.getElementById('reset-doc-id').value = docId;
+            document.getElementById('reset-student-id').textContent = studentId;
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            document.getElementById('password-match-error').classList.add('hidden');
+            document.getElementById('reset-password-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        /**
+         * Handles the form submission for password reset.
+         */
+        document.getElementById('reset-password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const docId = document.getElementById('reset-doc-id').value;
+            const studentId = document.getElementById('reset-student-id').textContent;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const errorEl = document.getElementById('password-match-error');
+
+            errorEl.classList.add('hidden');
+
+            if (newPassword !== confirmPassword) {
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showMessage("Validation Error", "The new password must be at least 6 characters long.");
+                return;
+            }
+
+            // Client-side implementation (SIMULATION ONLY)
+            try {
+                // IMPORTANT: This only updates a non-secure display field in RTDB. 
+                // It does NOT change the actual Firebase Auth password for the user.
+                const accountRef = ref(rtdb, `studentAccounts/${docId}`);
+                await set(accountRef, { 
+                    passwordDisplay: newPassword, 
+                    status: 'Active', // Ensure active status after reset
+                    updatedAt: new Date().toISOString() 
+                }, { merge: true });
+
+                closeModal('reset-password-modal');
+                showMessage(
+                    "Password Reset Successful (Client-Side Simulation)", 
+                    `The display password for **${studentId}** has been updated in the Realtime Database to: **${newPassword}**. 
+                    <br><br> **NOTE:** In a real application, a secure backend service running the **Firebase Admin SDK** must be used to actually change the user's login password.`
+                );
+
+            } catch (error) {
+                console.error("Error resetting password (simulated):", error);
+                showMessage("Error", "Failed to complete simulated password update. Check the console.");
+            }
+        });
+
+        // Initialize the app on load
+        initializeFirebase();
+    </script>
+</body>
+</html>

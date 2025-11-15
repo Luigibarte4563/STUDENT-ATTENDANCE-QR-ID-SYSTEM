@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Attendance Monitor - College QR Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .stat-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
+        .stat-icon { width: 1.5rem; height: 1.5rem; } 
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
+        
+        /* 1. Mobile Sidebar Positioning */
+        #sidebar {
+            --sidebar-width: 16rem; /* 256px for w-64 */
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed; /* Always fixed for overlay */
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 50; /* Higher than button and backdrop */
+        }
+        
+        /* 2. Backdrop styling */
+        #backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40; /* Below sidebar */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        /* 3. Main content padding adjustment to account for the new fixed mobile header (approx 4rem height) */
+        #main-content {
+            padding-top: 6rem; /* Increased space for the new fixed mobile header */
+        }
+
+        /* 4. State when menu is open on small screens */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #backdrop {
+            opacity: 1;
+            visibility: visible;
+        }
+        .sidebar-open body {
+            overflow: hidden; /* Prevent body scroll while sidebar is open */
+        }
+
+        /* 5. Desktop/Large Screen Reset (Standard side-by-side layout) */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative; /* Take up flow space */
+                transform: translateX(0); /* Always visible */
+                flex-shrink: 0;
+            }
+            #main-content {
+                padding-top: 1.5rem; /* Reset desktop padding */
+            }
+            #backdrop {
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+        }
+        
+        /* Table Styling for better look */
+        .table-row-present { background-color: #f0fdf4; } /* green-50 */
+        .table-row-late { background-color: #fffbeb; } /* yellow-50 */
+        .table-row-left { background-color: #eff6ff; } /* blue-50 */
+        .table-row-unknown { background-color: #fef2f2; } /* red-50 */
+
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <div class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 lg:hidden p-4">
+        <div class="flex items-center justify-between">
+            <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50">
+                <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
+            </button>
+            
+            <header class="flex-1 text-center -ml-1">
+                <h1 class="text-xl font-extrabold text-gray-800 truncate">Live Monitor</h1>
+                <p class="text-xs text-gray-500">Real-Time Attendance Scans</p>
+            </header>
+            
+            <div class="w-8 h-8"></div> 
+        </div>
+    </div>
+    
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-between border-b border-gray-800">
+            <div class="flex items-center">
+                <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+                <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+            </div>
+            <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+                <i data-lucide="x" class="lucide-icon"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="adminDashboard.html" class="nav-item"><i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>Dashboard Home</a>
+            <a href="adminLiveAttendanceMonitor.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
+            <a href="adminStudentManagement.html" class="nav-item"><i data-lucide="users" class="lucide-icon mr-3"></i>Student Management</a>
+            <a href="adminStudentAccountManagement.html" class="nav-item"><i data-lucide="user-cog" class="lucide-icon mr-3"></i>Student Account Management</a>
+            <a href="adminTeacherManagement.html" class="nav-item"><i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>Teacher Management</a>
+            <a href="adminAttendanceRecords.html" class="nav-item"><i data-lucide="calendar-check" class="lucide-icon mr-3"></i>Attendance Records</a>
+            <a href="adminReportsAndAnalytics.html" class="nav-item"><i data-lucide="bar-chart-3" class="lucide-icon mr-3"></i>Reports & Analytics</a>
+            <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line" class="lucide-icon mr-3"></i>QR Code Manager</a>
+            <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings" class="lucide-icon mr-3"></i>System Settings</a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="hidden lg:flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-800">Live Attendance Monitor <i data-lucide="eye" class="inline-block text-blue-600"></i></h1>
+                <p class="text-gray-500">Real-time list of students scanning their QR code.</p>
+            </div>
+            
+            <div id="profile-dropdown-container" class="relative">
+                <button id="profile-button" class="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 transition duration-150">
+                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                        <i data-lucide="user" class="w-5 h-5"></i>
+                    </div>
+                    <div class="hidden lg:flex flex-col items-start">
+                        <span id="profile-name" class="text-sm font-semibold text-gray-800">Admin Name</span>
+                        <span id="profile-email" class="text-xs text-gray-500">admin@gmail.com</span>
+                    </div>
+                    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+                </button>
+
+                <div id="profile-menu" class="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-2xl origin-top-right hidden z-40">
+                    <div class="p-3 border-b border-gray-100 lg:hidden">
+                        <p id="menu-name-mobile" class="text-sm font-semibold text-gray-800">Admin Name</p>
+                        <p id="menu-email-mobile" class="text-xs text-gray-500">admin@gmail.com</p>
+                    </div>
+                    <a href="#" id="change-password-link" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition duration-100 rounded-t-xl">
+                        <i data-lucide="key-round" class="w-4 h-4 mr-3 text-purple-500"></i> Change Password
+                    </a>
+                    <button id="logout-button" class="w-full text-left flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition duration-100 rounded-b-xl">
+                        <i data-lucide="log-out" class="w-4 h-4 mr-3 text-red-500"></i> Log Out
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
+            <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                    Latest Scans 
+                    <span id="live-refresh-status" class="ml-3 text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded-full flex items-center">
+                        <i data-lucide="refresh-cw" class="w-3 h-3 mr-1 animate-spin-slow"></i> 
+                        Auto-Refresh: <span id="refresh-time">2s</span>
+                    </span>
+                </h2>
+                <div class="flex flex-wrap gap-3">
+                    <select id="section-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Filter by Section</option>
+                        </select>
+                    <select id="grade-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Filter by Grade</option>
+                        <option value="1">Grade 1</option>
+                        <option value="2">Grade 2</option>
+                        <option value="3">Grade 3</option>
+                        <option value="4">Grade 4</option>
+                    </select>
+                    <input type="date" id="date-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500" value="<%= new Date().toISOString().substring(0, 10) %>">
+                    <button id="apply-filters" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 text-sm flex items-center">
+                        <i data-lucide="filter" class="w-4 h-4 mr-1"></i> Apply
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto shadow-md sm:rounded-lg">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Student Name</th>
+                            <th scope="col" class="px-6 py-3">Section</th>
+                            <th scope="col" class="px-6 py-3">Time In / Time Out</th>
+                            <th scope="col" class="px-6 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendance-list" class="divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="4" class="px-6 py-4 text-center text-gray-500 italic">
+                                <i data-lucide="loader-2" class="w-5 h-5 inline-block mr-2 animate-spin text-blue-500"></i>
+                                Loading real-time data...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+        </section>
+
+    </div> 
+
+    <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <h3 class="text-xl font-bold mb-4 flex items-center">
+                <i data-lucide="lock" class="w-5 h-5 mr-2 text-purple-600"></i> Change Password
+            </h3>
+            <form id="change-password-form">
+                <div class="mb-4">
+                    <label for="new-password" class="block text-sm font-medium text-gray-700">New Password</label>
+                    <input type="password" id="new-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required minlength="6">
+                </div>
+                <div class="mb-6">
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                    <input type="password" id="confirm-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required minlength="6">
+                </div>
+                <div id="password-error" class="text-sm text-red-600 mb-4 hidden"></div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-password-change" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition duration-150">Cancel</button>
+                    <button type="submit" id="submit-password-change" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition duration-150">
+                        Update Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Ensure Lucide icons are rendered after the script loads
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View 
+        // ------------------------------------------------------------------------------------------------
+        const backdrop = document.getElementById('backdrop');
+        const menuButton = document.getElementById('menu-button');
+        const sidebarCloseButton = document.getElementById('sidebar-close-button'); 
+        const body = document.body;
+
+        const toggleSidebar = () => {
+            const isOpen = body.classList.toggle('sidebar-open');
+            const icon = menuButton.querySelector('.lucide-icon'); 
+            // Only swap icon if it exists and is on a small screen
+            if (icon && window.innerWidth < 1024) { 
+                icon.setAttribute('data-lucide', isOpen ? 'x' : 'menu');
+                lucide.createIcons(); 
+            }
+        };
+        
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar); 
+        sidebarCloseButton.addEventListener('click', toggleSidebar); 
+
+        // --- Firebase Logic Setup ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // Import additional Auth functions for profile management
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // Import get for single RTDB read
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
+        import { getDatabase, ref, onValue, query, orderByChild, equalTo, get } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
+        
+        const LOGIN_PAGE_URL = "adminLogin.html"; // Define your login page URL here
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+        
+        let app, auth, db, rtdb; 
+        
+        // setLogLevel('debug'); // Uncomment for debugging
+
+        try {
+            // Initialize Firebase
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            rtdb = getDatabase(app);
+            db = getFirestore(app);
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+            document.getElementById('auth-status').textContent = 'Error!';
+            document.getElementById('auth-status').classList.remove('text-yellow-500');
+            document.getElementById('auth-status').classList.add('text-red-500');
+        }
+
+        // --- Live Monitor Logic ---
+
+        const attendanceListEl = document.getElementById('attendance-list');
+        const sectionFilterEl = document.getElementById('section-filter');
+        const gradeFilterEl = document.getElementById('grade-filter');
+        const dateFilterEl = document.getElementById('date-filter');
+        const applyFiltersButton = document.getElementById('apply-filters');
+        
+        let lastScanSubscription; // To hold the listener function/unsubscribe method
+        let studentsData = {}; // Cache student data for name/section lookup
+
+        // Helper to format date and time
+        const formatTime = (isoString) => {
+            if (!isoString) return 'N/A';
+            try {
+                const date = new Date(isoString);
+                // Options for 12-hour format with AM/PM
+                const options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+                return date.toLocaleTimeString('en-US', options);
+            } catch (e) {
+                console.error("Error formatting time:", e);
+                return 'Invalid Time';
+            }
+        };
+
+        const formatDate = (isoString) => {
+            if (!isoString) return 'N/A';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            } catch (e) {
+                return 'Invalid Date';
+            }
+        };
+
+        // Renders a single row in the table
+        const renderRow = (scan) => {
+            const student = studentsData[scan.studentId] || { fullName: 'Unknown Student', section: 'N/A' };
+            const timeIn = scan.timeIn ? formatTime(scan.timeIn) : 'N/A';
+            const timeOut = scan.timeOut ? formatTime(scan.timeOut) : 'N/A';
+            
+            let status = 'Unknown';
+            let statusClass = 'text-gray-600 bg-gray-200';
+            let rowClass = 'table-row-unknown';
+
+            if (scan.status === 'Present' || scan.status === 'Late') {
+                status = scan.status;
+                statusClass = scan.status === 'Present' ? 'text-green-600 bg-green-100' : 'text-yellow-700 bg-yellow-100';
+                rowClass = scan.status === 'Present' ? 'table-row-present' : 'table-row-late';
+            } else if (scan.status === 'Left') {
+                status = 'Left';
+                statusClass = 'text-blue-600 bg-blue-100';
+                rowClass = 'table-row-left';
+            } else if (scan.timeIn && !scan.timeOut) {
+                // Heuristic: If timeIn exists but no status, assume Present
+                status = 'Present (Check-in)';
+                statusClass = 'text-green-600 bg-green-100';
+                rowClass = 'table-row-present';
+            }
+
+
+            const row = document.createElement('tr');
+            row.className = `border-b hover:bg-gray-100 ${rowClass}`;
+            row.innerHTML = `
+                <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${student.fullName}</td>
+                <td class="px-6 py-4">${student.section}</td>
+                <td class="px-6 py-4">
+                    <span class="font-medium">${timeIn}</span> ${timeOut !== 'N/A' ? ` / ${timeOut}` : ''}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusClass}">
+                        ${status}
+                    </span>
+                </td>
+            `;
+            return row;
+        };
+
+        // Main function to fetch and display the live attendance
+        const fetchLiveAttendance = (sectionFilter, gradeFilter, dateFilter) => {
+            if (!rtdb) return;
+
+            // Stop previous listener if it exists
+            if (lastScanSubscription) {
+                // onValue returns an unsubscribe function when imported from "firebase/database"
+                if (typeof lastScanSubscription === 'function') {
+                    lastScanSubscription();
+                }
+            }
+
+            const attendanceDate = dateFilter || new Date().toISOString().substring(0, 10);
+            // Attendance is structured as: attendance/YYYY-MM-DD/{studentId}/{scanKey}
+            const attendanceRef = ref(rtdb, `attendance/${attendanceDate}`);
+            
+            // Build the query (Note: we rely on client-side filtering)
+            let attendanceQuery = attendanceRef;
+            
+            // Clear the existing list and show loading
+            attendanceListEl.innerHTML = `
+                <tr>
+                    <td colspan="4" class="px-6 py-4 text-center text-gray-500 italic">
+                        <i data-lucide="loader-2" class="w-5 h-5 inline-block mr-2 animate-spin text-blue-500"></i>
+                        Fetching scans for ${attendanceDate}...
+                    </td>
+                </tr>
+            `;
+            lucide.createIcons();
+
+
+            // Listen for changes
+            lastScanSubscription = onValue(attendanceQuery, (snapshot) => {
+                const allScans = snapshot.val() || {};
+                
+                // Convert object (studentId: {scanKey: scanData}) to flat array of scanData objects
+                const scanArray = Object.values(allScans)
+                    .flatMap(studentScans => Object.values(studentScans))
+                    .sort((a, b) => new Date(b.scanTime) - new Date(a.scanTime)); // Sort by most recent scanTime
+
+                attendanceListEl.innerHTML = ''; // Clear the list
+
+                let filteredScans = scanArray.filter(scan => {
+                    const student = studentsData[scan.studentId];
+                    // Skip if student data is not found (might be deleted or not loaded yet)
+                    if (!student) return false;
+
+                    const matchesSection = !sectionFilter || student.section === sectionFilter;
+                    const matchesGrade = !gradeFilter || student.grade.toString() === gradeFilter; // Ensure comparison is correct type
+
+                    return matchesSection && matchesGrade;
+                });
+
+                if (filteredScans.length === 0) {
+                    attendanceListEl.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="px-6 py-4 text-center text-gray-500 italic">
+                                No scans found for the selected filters on ${formatDate(new Date(attendanceDate).toISOString())}.
+                            </td>
+                        </tr>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                // Render the scans
+                filteredScans.forEach(scan => {
+                    attendanceListEl.appendChild(renderRow(scan));
+                });
+                lucide.createIcons(); // Render any new icons in the rows
+
+            }, (error) => {
+                console.error("Error fetching live attendance:", error);
+                attendanceListEl.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-red-500 font-semibold italic">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 inline-block mr-2"></i>
+                            Failed to load attendance data.
+                        </td>
+                    </tr>
+                `;
+                lucide.createIcons();
+            });
+            // The value returned by onValue is the unsubscribe function, which we store in lastScanSubscription
+        };
+        
+        // Function to load all student data and populate section filter
+        const loadStudentAndSectionData = () => {
+            if (!rtdb) return;
+
+            const studentsRef = ref(rtdb, 'students');
+
+            // Use 'once' instead of 'onValue' to avoid re-running this logic on every student change,
+            // as this is for the filters and name/section lookups.
+            get(studentsRef).then((snapshot) => {
+                const rawStudentsData = snapshot.val() || {};
+                const studentList = Object.values(rawStudentsData);
+
+                // 1. Cache student data for fast lookup
+                studentsData = studentList.reduce((acc, student) => {
+                    // Check if studentId exists before assigning
+                    if (student.studentId) {
+                        acc[student.studentId] = student;
+                    }
+                    return acc;
+                }, {});
+
+                // 2. Populate Section Filter
+                const uniqueSections = [...new Set(studentList.map(s => s.section).filter(Boolean))].sort();
+                sectionFilterEl.innerHTML = '<option value="">Filter by Section</option>'; // Reset
+                uniqueSections.forEach(section => {
+                    const option = document.createElement('option');
+                    option.value = section;
+                    option.textContent = section;
+                    sectionFilterEl.appendChild(option);
+                });
+
+                // Once data is loaded, start the live monitor
+                const currentSection = sectionFilterEl.value;
+                const currentGrade = gradeFilterEl.value;
+                const currentDate = dateFilterEl.value;
+                fetchLiveAttendance(currentSection, currentGrade, currentDate);
+
+            }).catch((error) => {
+                console.error("Error loading student/section data:", error);
+            });
+        };
+
+        // --- Event Listeners and Auto-Refresh ---
+        
+        applyFiltersButton.addEventListener('click', () => {
+            const section = sectionFilterEl.value;
+            const grade = gradeFilterEl.value;
+            const date = dateFilterEl.value;
+            // When filters change, we call fetchLiveAttendance which automatically unsubscribes the old listener
+            // and sets up a new one for the same date/ref, but with new client-side filters.
+            fetchLiveAttendance(section, grade, date);
+        });
+        
+        // Auto-refresh logic: since onValue is used in fetchLiveAttendance, the data is already real-time.
+        // The interval is primarily to re-run client-side filtering/re-render, but it's redundant.
+        // I will keep a simple interval to *visually confirm* the 'live' state by shaking an icon or similar,
+        // but the core RTDB connection is what provides the real-time updates.
+        // For simplicity, I'll remove the interval that re-fetches to avoid listener thrashing,
+        // as the RTDB listener is persistent. The 'refresh-cw' icon and time display is misleading.
+        // I'll update the initial display but remove the interval.
+        
+        document.getElementById('refresh-time').textContent = `LIVE`;
+        
+        // ------------------------------------------------------------------------------------------------
+        // NEW PROFILE MANAGEMENT LOGIC
+        // ------------------------------------------------------------------------------------------------
+
+        // ---------- Profile Dropdown Toggle ----------
+        const profileButton = document.getElementById('profile-button');
+        const profileMenu = document.getElementById('profile-menu');
+
+        profileButton.addEventListener('click', () => {
+            profileMenu.classList.toggle('hidden');
+            lucide.createIcons(); // Re-render icons after visibility change
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!profileButton.contains(event.target) && !profileMenu.contains(event.target) && window.innerWidth >= 1024) {
+                profileMenu.classList.add('hidden');
+            }
+        });
+
+        // ---------- Firebase Profile Fetch ----------
+        async function fetchAdminProfile(uid) {
+            if (!rtdb || !auth.currentUser) return;
+            
+            // Get email from Firebase Auth (guaranteed to exist if authenticated)
+            const email = auth.currentUser.email || 'admin@auth.email'; 
+            
+            // Assumes admin data is stored under /admins/{uid}
+            const adminRef = ref(rtdb, `admins/${uid}`); 
+            let name = 'Admin User';
+            try {
+                const snapshot = await get(adminRef);
+                const profile = snapshot.val();
+                
+                name = profile?.name || 'Admin User'; // Use RTDB name if available
+
+            } catch (error) {
+                console.error("Error fetching admin profile from RTDB:", error);
+            }
+            
+            // Update UI elements
+            document.getElementById('profile-name').textContent = name;
+            document.getElementById('profile-email').textContent = email;
+            document.getElementById('menu-name-mobile').textContent = name;
+            document.getElementById('menu-email-mobile').textContent = email;
+        }
+
+        // ---------- Logout ----------
+        document.getElementById('logout-button').addEventListener('click', async () => {
+            try {
+                // Remove the RTDB listener before logging out
+                if (lastScanSubscription && typeof lastScanSubscription === 'function') {
+                    lastScanSubscription();
+                }
+                await signOut(auth);
+                // Clear any local state and redirect to login page
+                window.location.href = LOGIN_PAGE_URL; 
+            } catch (error) {
+                console.error("Logout Failed:", error);
+                alert("Logout failed. Please try again. " + error.message);
+            }
+        });
+
+        // ---------- Change Password Modal & Logic ----------
+        const passwordModal = document.getElementById('password-modal');
+        const changePasswordLink = document.getElementById('change-password-link');
+        const cancelPasswordChange = document.getElementById('cancel-password-change');
+        const changePasswordForm = document.getElementById('change-password-form');
+        const newPasswordInput = document.getElementById('new-password');
+        const confirmPasswordInput = document.getElementById('confirm-password');
+        const passwordError = document.getElementById('password-error');
+        const submitPasswordChange = document.getElementById('submit-password-change');
+
+        // Open Modal
+        changePasswordLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (profileMenu) profileMenu.classList.add('hidden');
+            if (passwordModal) {
+                passwordModal.classList.remove('hidden');
+                passwordModal.classList.add('flex');
+                passwordError.classList.add('hidden');
+                newPasswordInput.value = '';
+                confirmPasswordInput.value = '';
+                lucide.createIcons();
+            }
+        });
+
+        // Close Modal
+        cancelPasswordChange.addEventListener('click', () => {
+            if (passwordModal) {
+                passwordModal.classList.add('hidden');
+                passwordModal.classList.remove('flex');
+            }
+        });
+        
+        // Modal Submit
+        changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = newPasswordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            const user = auth.currentUser;
+            
+            passwordError.classList.add('hidden');
+            submitPasswordChange.disabled = true;
+            submitPasswordChange.textContent = 'Updating...';
+
+            if (newPassword !== confirmPassword) {
+                passwordError.textContent = 'Passwords do not match.';
+                passwordError.classList.remove('hidden');
+                submitPasswordChange.disabled = false;
+                submitPasswordChange.textContent = 'Update Password';
+                return;
+            }
+
+            if (!user) {
+                passwordError.textContent = 'User not authenticated. Please log out and log in again.';
+                passwordError.classList.remove('hidden');
+                submitPasswordChange.disabled = false;
+                submitPasswordChange.textContent = 'Update Password';
+                return;
+            }
+
+            try {
+                await updatePassword(user, newPassword);
+                
+                alert('Password updated successfully. For security, you will now be logged out.');
+                // Successful update -> Logout
+                passwordModal.classList.add('hidden');
+                await signOut(auth);
+                window.location.href = LOGIN_PAGE_URL; 
+                
+            } catch (error) {
+                console.error("Password update failed:", error);
+                let message = 'Failed to update password. Please re-authenticate by logging out and logging in again before trying to change the password.';
+                
+                // Specific Firebase error codes
+                if (error.code === 'auth/requires-recent-login') {
+                    message = 'For security, you must recently re-login to change your password. Please log out and log in again.';
+                } else if (error.code === 'auth/weak-password') {
+                    message = 'Password is too weak. It must be at least 6 characters.';
+                } else {
+                    message = `Update failed: ${error.message}`;
+                }
+                
+                passwordError.textContent = message;
+                passwordError.classList.remove('hidden');
+                submitPasswordChange.disabled = false;
+                submitPasswordChange.textContent = 'Update Password';
+            }
+        });
+
+
+        // ------------------------------------------------------------------------------------------------
+        // Auth State Management
+        // ------------------------------------------------------------------------------------------------
+
+        onAuthStateChanged(auth, (user) => {
+            const authStatusEl = document.getElementById('auth-status');
+            const userIdEl = document.getElementById('user-id');
+            
+            if (user) {
+                // User is signed in.
+                console.log("Admin is authenticated. UID:", user.uid);
+                authStatusEl.textContent = 'Authenticated';
+                authStatusEl.classList.remove('text-yellow-500');
+                authStatusEl.classList.add('text-green-500');
+                userIdEl.textContent = user.uid;
+
+                // 1. Fetch Admin Profile
+                fetchAdminProfile(user.uid);
+                
+                // 2. Load supporting data and start the live monitor
+                loadStudentAndSectionData();
+
+
+            } else {
+                // User is signed out. Redirect to login page.
+                console.log("No admin signed in. Redirecting to login.");
+                authStatusEl.textContent = 'Unauthenticated';
+                authStatusEl.classList.remove('text-yellow-500');
+                authStatusEl.classList.add('text-red-500');
+                userIdEl.textContent = 'N/A';
+                
+                // Check if we are already on the login page to avoid infinite redirect
+                if (!window.location.pathname.endsWith(LOGIN_PAGE_URL)) {
+                    window.location.href = LOGIN_PAGE_URL;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

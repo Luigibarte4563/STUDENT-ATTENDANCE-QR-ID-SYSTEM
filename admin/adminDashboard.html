@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Overview | QR Attend System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* 2. FIX: Standard CSS Media Query for Sidebar Responsiveness */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 50;
+            width: 16rem; /* Tailwind w-64 */
+            transform: translateX(0);
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        /* Mobile view: hidden by default (lg: is 1024px, so max-width: 1023px) */
+        @media (max-width: 1023px) {
+            #sidebar {
+                transform: translateX(-100%);
+            }
+        }
+        
+        #backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            display: none;
+        }
+
+        /* State for when the sidebar is open on mobile */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+
+        .sidebar-open #backdrop {
+            display: block;
+        }
+
+        /* Custom styles for navigation links (Original styles are fine, but ensure base styles apply) */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+        }
+        .nav-item:hover {
+            background-color: #374151; /* gray-700 */
+            color: #ffffff;
+        }
+        /* Ensure the active link is always prominent */
+        .nav-item.active {
+            background-color: #1f2937; /* A shade darker than hover, gray-800 */
+            color: #60a5fa; /* blue-400 */
+            font-weight: 600;
+        }
+    </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+    <div class="p-6 flex items-center justify-between border-b border-gray-800">
+        <div class="flex items-start">
+            <i data-lucide="qr-code" class="text-blue-400 mr-2 text-3xl mt-4"></i>
+            
+            <div class="flex flex-col text-xl font-bold text-blue-400 leading-tight">
+                <span>QR Attend</span>
+                <span>System</span>
+            </div>
+        </div>
+        <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+            <i data-lucide="x" class="lucide-icon"></i>
+        </button>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+        <a href="adminDashboard.html" class="nav-item active"> 
+            <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+            Dashboard Home
+        </a>
+        <a href="adminLiveAttendanceMonitor.html" class="nav-item"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
+        <a href="adminStudentManagement.html" class="nav-item"><i data-lucide="users" class="lucide-icon mr-3"></i>Student Management</a>
+        <a href="adminStudentAccountManagement.html" class="nav-item"><i data-lucide="user-cog" class="lucide-icon mr-3"></i>Student Account Management</a>
+        <a href="adminTeacherManagement.html" class="nav-item"><i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>Teacher Management</a>
+        <a href="adminAttendanceRecords.html" class="nav-item"><i data-lucide="calendar-check" class="lucide-icon mr-3"></i>Attendance Records</a>
+        <a href="adminReportsAndAnalytics.html" class="nav-item"><i data-lucide="bar-chart-3" class="lucide-icon mr-3"></i>Reports & Analytics</a>
+        <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line" class="lucide-icon mr-3"></i>QR Code Manager</a>
+        <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings" class="lucide-icon mr-3"></i>System Settings</a>
+    </nav>
+
+    <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+        <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+        <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+    </div>
+</aside>
+
+    <div id="main-container" class="lg:pl-64 flex flex-col min-h-screen">
+        
+        <div id="top-header" class="bg-white border-b border-gray-200 sticky top-0 z-30">
+            <div class="flex items-center justify-between p-4 lg:pr-6">
+                
+                <div class="flex items-center lg:hidden">
+                    <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50 mr-3">
+                        <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
+                    </button>
+                    <div class="flex flex-col">
+                        <h1 class="text-xl font-extrabold text-gray-800 truncate">Dashboard Overview</h1>
+                        <p class="text-xs text-gray-500">Admin Panel</p>
+                    </div>
+                </div>
+                
+                <header class="hidden lg:block">
+                    <h1 class="text-2xl font-extrabold text-gray-800">Dashboard Overview</h1>
+                    <p class="text-sm text-gray-500">Current Status of College Attendance System</p>
+                </header>
+
+                <div id="profile-dropdown-container" class="relative">
+                    <button id="profile-button" class="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 transition duration-150 focus:outline-none">
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                            <i data-lucide="user" class="w-5 h-5"></i>
+                        </div>
+                        <div class="hidden lg:flex flex-col items-start">
+                            <span id="profile-name" class="text-sm font-semibold text-gray-800">Admin Name</span>
+                            <span id="profile-email" class="text-xs text-gray-500">admin@gmail.com</span>
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+                    </button>
+
+                    <div id="profile-menu" class="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-2xl origin-top-right hidden z-40">
+                        <div class="p-3 border-b border-gray-100 lg:hidden">
+                            <p id="menu-name-mobile" class="text-sm font-semibold text-gray-800">Admin Name</p>
+                            <p id="menu-email-mobile" class="text-xs text-gray-500">admin@gmail.com</p>
+                        </div>
+                        <a href="#" id="change-password-link" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition duration-100 rounded-t-xl">
+                            <i data-lucide="key-round" class="w-4 h-4 mr-3 text-purple-500"></i> Change Password
+                        </a>
+                        <button id="logout-button" class="w-full text-left flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition duration-100 rounded-b-xl">
+                            <i data-lucide="log-out" class="w-4 h-4 mr-3 text-red-500"></i> Log Out
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-8 lg:p-8">
+            
+            <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <i data-lucide="lock" class="w-5 h-5 mr-2 text-purple-600"></i> Change Password
+                    </h3>
+                    <form id="change-password-form">
+                        <div class="mb-4">
+                            <label for="new-password" class="block text-sm font-medium text-gray-700">New Password</label>
+                            <input type="password" id="new-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required minlength="6">
+                        </div>
+                        <div class="mb-6">
+                            <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                            <input type="password" id="confirm-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required minlength="6">
+                        </div>
+                        <div id="password-error" class="text-sm text-red-600 mb-4 hidden"></div>
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" id="cancel-password-change" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition duration-150">Cancel</button>
+                            <button type="submit" id="submit-password-change" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition duration-150">
+                                Update Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6 mb-8">
+                <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-blue-500">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-blue-100 rounded-full mr-3 sm:mr-4">
+                            <i data-lucide="graduation-cap" class="stat-icon text-blue-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Total Students</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900" id="total-students">-</p> 
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-purple-500">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-purple-100 rounded-full mr-3 sm:mr-4">
+                            <i data-lucide="users-2" class="stat-icon text-purple-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Total Teachers</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900" id="total-teachers">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-green-500">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-green-100 rounded-full mr-3 sm:mr-4">
+                            <i data-lucide="check-circle" class="stat-icon text-green-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Present Today</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900" id="present-today">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-red-500">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-red-100 rounded-full mr-3 sm:mr-4">
+                            <i data-lucide="x-circle" class="stat-icon text-red-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Absent Today</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900" id="absent-today">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-yellow-500">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-yellow-100 rounded-full mr-3 sm:mr-4">
+                            <i data-lucide="hourglass" class="stat-icon text-yellow-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Late Today</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900" id="late-today">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-pink-500">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-pink-100 rounded-full mr-3 sm:mr-4">
+                            <i data-lucide="layout-grid" class="stat-icon text-pink-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Sections</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900" id="total-sections">-</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stat-card p-4 sm:p-5 bg-white rounded-xl shadow-md border-b-4 border-orange-500">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-orange-100 rounded-full mr-3 sm:mr-4">
+                            <i data-lucide="bell" class="stat-icon text-orange-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500 uppercase">Alerts (24h)</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900 text-red-600" id="total-alerts">-</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="bg-white p-6 rounded-xl shadow-xl">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Quick Actions 🚀</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    
+                    <a href="adminStudentManagement.html" class="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition duration-150 shadow-lg">
+                        <i data-lucide="user-plus" class="lucide-icon mr-2"></i>
+                        Add Student
+                    </a>
+
+                    <a href="adminTeacherManagement.html" class="flex items-center justify-center px-6 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition duration-150 shadow-lg">
+                        <i data-lucide="user-cog" class="lucide-icon mr-2"></i>
+                        Add Teacher
+                    </a>
+
+                    <a href="adminQRCodeManager.html" class="flex items-center justify-center px-6 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition duration-150 shadow-lg">
+                        <i data-lucide="scan-line" class="lucide-icon mr-2"></i>
+                        Generate QR
+                    </a>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script type="module">
+        lucide.createIcons();
+
+        // ------------------------------------------------------------------------------------------------
+        // Toggle Sidebar for Mobile View 
+        // ------------------------------------------------------------------------------------------------
+        const backdrop = document.getElementById('backdrop');
+        const menuButton = document.getElementById('menu-button');
+        const sidebarCloseButton = document.getElementById('sidebar-close-button');
+        const body = document.body;
+
+        const toggleSidebar = () => {
+            const isOpen = body.classList.toggle('sidebar-open');
+            // The menu icon is static data-lucide="menu" in HTML, so we don't need to change its data-lucide attribute, 
+            // but we can update a class or visually hide/show an 'x' icon.
+            // Keeping the original implementation that relies on lucide.createIcons() for simplicity, 
+            // but it's less efficient.
+            const menuIconEl = document.getElementById('menu-icon');
+            if (menuIconEl) {
+                // Change icon on mobile menu button
+                menuIconEl.setAttribute('data-lucide', isOpen ? 'x' : 'menu');
+                lucide.createIcons();
+            }
+        };
+        
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar);
+        sidebarCloseButton.addEventListener('click', toggleSidebar);
+
+        // ------------------------------------------------------------------------------------------------
+        // Profile Dropdown Toggle Logic
+        // ------------------------------------------------------------------------------------------------
+        const profileButton = document.getElementById('profile-button');
+        const profileMenu = document.getElementById('profile-menu');
+
+        profileButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent document click listener from immediately closing it
+            profileMenu.classList.toggle('hidden');
+        });
+
+        // Close the dropdown if the user clicks outside of it
+        document.addEventListener('click', (event) => {
+            // Check if the click is outside the button AND outside the menu
+            const isClickInsideContainer = document.getElementById('profile-dropdown-container').contains(event.target);
+            if (!isClickInsideContainer) {
+                profileMenu.classList.add('hidden');
+            }
+        });
+
+
+        // --- Firebase Logic ---
+        // NOTE: While these specific URLs are old, they were in the original code. 
+        // For production, use 'https://www.gstatic.com/firebasejs/10.x.x/...' or module exports from npm.
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged, 
+            signOut,
+            updatePassword,
+            // EmailAuthProvider, // Not used in this simplified re-auth-less example
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
+        
+        // IMPORTANT: Replace with your actual Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com",
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+        
+        const LOGIN_PAGE_URL = 'adminLogInPage.html'; // Assuming your login page is named this.
+
+        let app, auth, rtdb; 
+        let isAuthReady = false;
+        
+        const profileNameEl = document.getElementById('profile-name');
+        const profileEmailEl = document.getElementById('profile-email');
+        const menuNameMobileEl = document.getElementById('menu-name-mobile');
+        const menuEmailMobileEl = document.getElementById('menu-email-mobile');
+
+        // Helper function to get a reference to a specific node
+        function getRef(nodeName) {
+            return ref(rtdb, nodeName);
+        }
+        
+        // Helper function to update a count in the UI
+        function updateCount(elementId, count) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = count.toLocaleString();
+            }
+        }
+        
+        // --- PROFILE FUNCTIONS ---
+
+        /** Fetches admin profile data from RTDB and updates the UI. */
+        async function fetchAdminProfile(uid) {
+            if (!rtdb) return;
+
+            const adminRef = getRef(`admins/${uid}`); 
+
+            try {
+                const snapshot = await get(adminRef);
+                const profile = snapshot.val();
+
+                const user = auth.currentUser;
+                const email = user?.email || 'N/A';
+                let name = 'Admin User';
+                
+                if (profile && profile.name) {
+                    name = profile.name;
+                } else if (email !== 'N/A') {
+                    name = email.split('@')[0] || 'Admin';
+                }
+
+                profileNameEl.textContent = name;
+                profileEmailEl.textContent = email;
+                menuNameMobileEl.textContent = name;
+                menuEmailMobileEl.textContent = email;
+
+            } catch (error) {
+                console.error("Error fetching admin profile:", error);
+                profileNameEl.textContent = 'Error';
+                profileEmailEl.textContent = 'Failed to load';
+            }
+        }
+
+        /** Handles user logout and redirects to the login page. */
+        document.getElementById('logout-button').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                // Redirect after successful sign out
+                window.location.href = LOGIN_PAGE_URL; 
+            } catch (error) {
+                console.error("Logout Failed:", error);
+                alert("Logout failed. Please try again.");
+            }
+        });
+        
+        // --- CHANGE PASSWORD MODAL LOGIC ---
+        const passwordModal = document.getElementById('password-modal');
+        const changePasswordLink = document.getElementById('change-password-link');
+        const cancelPasswordChange = document.getElementById('cancel-password-change');
+        const changePasswordForm = document.getElementById('change-password-form');
+        const newPasswordInput = document.getElementById('new-password');
+        const confirmPasswordInput = document.getElementById('confirm-password');
+        const passwordError = document.getElementById('password-error');
+        const submitPasswordChange = document.getElementById('submit-password-change');
+        
+        changePasswordLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            profileMenu.classList.add('hidden'); // Close dropdown
+            passwordModal.classList.remove('hidden'); // Show modal
+            passwordModal.classList.add('flex');
+            passwordError.classList.add('hidden');
+            newPasswordInput.value = '';
+            confirmPasswordInput.value = '';
+        });
+
+        cancelPasswordChange.addEventListener('click', () => {
+            passwordModal.classList.add('hidden');
+            passwordModal.classList.remove('flex');
+        });
+
+        changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const newPassword = newPasswordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            const user = auth.currentUser;
+
+            passwordError.classList.add('hidden');
+            passwordError.textContent = '';
+            submitPasswordChange.disabled = true;
+            submitPasswordChange.textContent = 'Updating...';
+
+            if (newPassword !== confirmPassword) {
+                passwordError.textContent = 'Passwords do not match.';
+                passwordError.classList.remove('hidden');
+                submitPasswordChange.disabled = false;
+                submitPasswordChange.textContent = 'Update Password';
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                passwordError.textContent = 'Password must be at least 6 characters.';
+                passwordError.classList.remove('hidden');
+                submitPasswordChange.disabled = false;
+                submitPasswordChange.textContent = 'Update Password';
+                return;
+            }
+
+            if (!user) {
+                passwordError.textContent = 'No active user found. Please log in again.';
+                passwordError.classList.remove('hidden');
+                submitPasswordChange.disabled = false;
+                submitPasswordChange.textContent = 'Update Password';
+                return;
+            }
+            
+            try {
+                await updatePassword(user, newPassword);
+                
+                alert('Password changed successfully! You will be logged out to re-authenticate.');
+                await signOut(auth);
+                window.location.href = LOGIN_PAGE_URL;
+                
+            } catch (error) {
+                console.error("Change Password Failed:", error);
+                let message = 'Failed to change password. Please ensure you are logged in recently.';
+                if (error.code === 'auth/requires-recent-login') {
+                    message = 'Security warning: You must log in again to change your password.';
+                } else {
+                    message = `Error: ${error.message}`;
+                }
+
+                passwordError.textContent = message;
+                passwordError.classList.remove('hidden');
+                submitPasswordChange.disabled = false;
+                submitPasswordChange.textContent = 'Update Password';
+            }
+        });
+        
+        // ------------------------------------------------------------------------------------------------
+        // Initialization & Data Fetching
+        // ------------------------------------------------------------------------------------------------
+
+        function setupGenericCountListener(nodeName, elementId) {
+            if (!isAuthReady || !rtdb) return;
+
+            const nodeRef = getRef(nodeName);
+
+            onValue(nodeRef, (snapshot) => {
+                let count = 0;
+                const data = snapshot.val();
+                if (data) {
+                    count = Object.keys(data).length;
+                }
+                updateCount(elementId, count);
+            }, (error) => {
+                console.error(`Error loading ${nodeName} count from RTDB:`, error);
+                document.getElementById(elementId).textContent = 'Error';
+            });
+        }
+        
+        function countUniqueSections(elementId) {
+            if (!isAuthReady || !rtdb) return;
+
+            const studentsRef = getRef('students'); 
+
+            onValue(studentsRef, (snapshot) => {
+                const studentsData = snapshot.val();
+                const uniqueSections = new Set();
+                
+                if (studentsData) {
+                    Object.values(studentsData).forEach(student => {
+                        // Check if section exists, is a string, and is not empty
+                        if (student.section && typeof student.section === 'string' && student.section.trim() !== '') {
+                            uniqueSections.add(student.section.trim());
+                        }
+                    });
+                }
+                
+                const count = uniqueSections.size;
+                updateCount(elementId, count);
+            }, (error) => {
+                console.error("Error fetching unique section count:", error);
+                document.getElementById(elementId).textContent = 'Error';
+            });
+        }
+
+        function loadManagementCounts() {
+            setupGenericCountListener('students', 'total-students');
+            setupGenericCountListener('teachers', 'total-teachers'); 
+            countUniqueSections('total-sections');
+        }
+
+
+        function fetchDashboardStats() {
+            if (!rtdb) {
+                console.error("Realtime Database not initialized.");
+                return;
+            }
+
+            const statsRef = getRef('stats'); 
+
+            // Listener for real-time updates to daily stats
+            onValue(statsRef, (snapshot) => {
+                const stats = snapshot.val();
+                
+                if (stats) {
+                    const updateElement = (id, value) => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            // Ensure the value is a number before formatting
+                            el.textContent = (typeof value === 'number') ? value.toLocaleString() : (value || 0).toLocaleString();
+                        } 
+                    };
+
+                    updateElement('present-today', stats.presentToday || 0);
+                    updateElement('absent-today', stats.absentToday || 0);
+                    updateElement('late-today', stats.lateToday || 0);
+                    updateElement('total-alerts', stats.totalAlerts || 0);
+                } else {
+                    console.log("Stats node is empty or missing.");
+                    // Optionally set all to 0 or 'N/A' if stats node is empty
+                }
+            }, (error) => {
+                console.error("Error fetching dashboard stats:", error);
+                document.getElementById('present-today').textContent = 'Error';
+            });
+        }
+        
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                // The databaseURL is passed again as a safety measure for getDatabase
+                rtdb = getDatabase(app, firebaseConfig.databaseURL); 
+
+                onAuthStateChanged(auth, async (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        userIdEl.textContent = user.uid;
+                        isAuthReady = true;
+
+                        // Load data
+                        fetchAdminProfile(user.uid);
+                        loadManagementCounts();
+                        fetchDashboardStats();
+                    } else {
+                        statusEl.textContent = "Unauthenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-green-500');
+                        statusEl.classList.add('text-red-500');
+                        userIdEl.textContent = 'N/A';
+                        isAuthReady = false;
+                        
+                        // Redirect to login if unauthenticated and not on the login page (UNCOMMENT FOR PRODUCTION)
+                        // if (!window.location.href.includes(LOGIN_PAGE_URL)) {
+                        //     console.log("No user signed in. Redirecting to login...");
+                        //     window.location.href = LOGIN_PAGE_URL;
+                        // }
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Initialization Failed:", error);
+                document.getElementById('auth-status').textContent = 'Failed';
+                document.getElementById('auth-status').classList.remove('text-yellow-500');
+                document.getElementById('auth-status').classList.add('text-red-500');
+            }
+        }
+
+        initializeFirebase();
+    </script>
+</body>
+</html>
