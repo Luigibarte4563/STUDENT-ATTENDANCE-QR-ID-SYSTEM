@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Management | QR Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom font and base styling */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Custom styles for better aesthetics */
+        .stat-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
+        .stat-icon { width: 1.5rem; height: 1.5rem; } 
+
+        /* Base Nav Item Styling */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .nav-item:hover {
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+        }
+        
+        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
+        
+        /* 1. Mobile Sidebar Positioning */
+        #sidebar {
+            --sidebar-width: 16rem; /* 256px for w-64 */
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+            position: fixed; /* Always fixed for overlay */
+            top: 0; 
+            bottom: 0;
+            left: 0;
+            z-index: 50; /* Higher than button and backdrop */
+        }
+        
+        /* 2. Backdrop styling */
+        #backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40; /* Below sidebar */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        /* 3. Main content padding adjustment */
+        #main-content {
+            padding-top: 6rem; /* Increased space for the new fixed mobile header */
+        }
+
+        /* 4. State when menu is open on small screens */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+        .sidebar-open #backdrop {
+            opacity: 1;
+            visibility: visible;
+        }
+        .sidebar-open body {
+            overflow: hidden; /* Prevent body scroll while sidebar is open */
+        }
+
+        /* 5. Desktop/Large Screen Reset (Standard side-by-side layout) */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            #sidebar {
+                position: relative; /* Take up flow space */
+                transform: translateX(0); /* Always visible */
+                flex-shrink: 0;
+            }
+            #main-content {
+                padding-top: 1.5rem; /* Reset desktop padding */
+            }
+            #backdrop {
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-50 flex min-h-screen"> 
+    <div id="backdrop" class="lg:hidden"></div>
+
+    <div class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 lg:hidden p-4">
+        <div class="flex items-center justify-between">
+            <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50">
+                <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
+            </button>
+            
+            <header class="flex-1 text-center -ml-1">
+                <h1 class="text-xl font-extrabold text-gray-800 truncate">Teacher Management</h1>
+                <p class="text-xs text-gray-500">Manage teacher records here</p>
+            </header>
+            
+            <div class="w-8 h-1"></div> 
+        </div>
+    </div>
+    
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+        <div class="p-6 flex items-center justify-between border-b border-gray-800">
+            <div class="flex items-center">
+                <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
+                <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+            </div>
+            <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+                <i data-lucide="x" class="lucide-icon"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <a href="adminDashboard.html" class="nav-item"><i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>Dashboard Home</a>
+            <a href="adminLiveAttendanceMonitor.html" class="nav-item"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
+            <a href="adminStudentManagement.html" class="nav-item"><i data-lucide="users" class="lucide-icon mr-3"></i>Student Management</a>
+            <a href="adminTeacherManagement.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700"><i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>Teacher Management</a>
+            <a href="adminAttendanceRecords.html" class="nav-item"><i data-lucide="calendar-check" class="lucide-icon mr-3"></i>Attendance Records</a>
+            <a href="adminReportsAndAnalytics.html" class="nav-item"><i data-lucide="bar-chart-3" class="lucide-icon mr-3"></i>Reports & Analytics</a>
+            <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line" class="lucide-icon mr-3"></i>QR Code Manager</a>
+            <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings" class="lucide-icon mr-3"></i>System Settings</a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
+            <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
+        </div>
+
+    </aside>
+
+    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+        
+        <header class="hidden lg:block mb-6 pb-4 border-b border-gray-200 lg:text-left">
+            <h1 class="text-3xl font-extrabold text-gray-800">Teacher Management</h1>
+            <p class="text-gray-500">Admin can fully manage teacher records, sections, and permissions here:</p>
+        </header>
+
+        <section class="bg-white p-6 rounded-xl shadow-xl mb-8">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <h2 class="text-xl font-bold text-gray-800">Teacher Roster (<span id="teacher-count">0</span>)</h2>
+                
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="showAddEditModal()" class="action-btn bg-blue-600 hover:bg-blue-700">
+                        <i data-lucide="user-plus" class="lucide-icon mr-2"></i>
+                        Add New Teacher
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-4 mb-6">
+                <input type="text" id="search-input" oninput="filterTeachers()" placeholder="Search by Name or Email..." 
+                        class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                
+                <select id="section-filter" onchange="filterTeachers()"
+                        class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Sections</option>
+                    </select>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg shadow-inner border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Name</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Email (ID)</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Sections Assigned</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="teachers-table-body">
+                        <tr><td colspan="4" class="text-center p-6 text-gray-500">Loading teacher data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="empty-state" class="hidden text-center p-12 bg-gray-50 rounded-lg mt-4 border border-dashed">
+                <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-3 text-gray-400"></i>
+                <p class="text-gray-600 font-semibold">No teachers found.</p>
+                <p class="text-sm text-gray-500">Try adjusting your search filters or add a new teacher.</p>
+            </div>
+            
+        </section>
+        
+        <div class="h-20"></div>
+
+    </div>
+    
+    <div id="add-edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Add New Teacher</h3>
+                <div class="mt-4 px-7 py-3">
+                    <form id="teacher-form">
+                        <input type="hidden" id="doc-id" value="">
+                        
+                        <div class="mb-4">
+                            <label for="name" class="block text-sm font-medium text-gray-700 text-left">Full Name</label>
+                            <input type="text" id="name" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div class="mb-4">
+                            <label for="email" class="block text-sm font-medium text-gray-700 text-left">Email (Used for Login/ID)</label>
+                            <input type="email" id="email" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div class="mb-4">
+                            <label for="password" class="block text-sm font-medium text-gray-700 text-left">Password (Demo only, clear text)</label>
+                            <input type="text" id="password" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        
+                        <div class="items-center px-4 py-3">
+                            <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                Save Teacher
+                            </button>
+                            <button type="button" onclick="closeModal('add-edit-modal')" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md hover:bg-gray-300">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sections-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Assign Sections to <span id="sections-teacher-name" class="font-bold text-blue-600"></span></h3>
+                <input type="hidden" id="sections-teacher-id">
+                <div class="mt-4 px-7 py-3">
+                    <p class="text-sm text-gray-500 text-left mb-4">Select all sections this teacher will be responsible for:</p>
+                    <div id="section-checkbox-container" class="max-h-60 overflow-y-auto border p-3 rounded-md text-left space-y-2">
+                        <p class="text-sm text-gray-400">Loading sections...</p>
+                    </div>
+                    
+                    <div class="items-center px-4 py-3 mt-4">
+                        <button onclick="saveSections()" class="w-full px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700">
+                            Save Section Assignments
+                        </button>
+                        <button type="button" onclick="closeModal('sections-modal')" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md hover:bg-gray-300">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="permissions-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Set Permissions for <span id="permissions-teacher-name" class="font-bold text-blue-600"></span></h3>
+                <input type="hidden" id="permissions-teacher-id">
+                <div class="mt-4 px-7 py-3">
+                    <p class="text-sm text-gray-500 text-left mb-4">Grant access to specific system features:</p>
+                    <div class="text-left space-y-3">
+                        <div class="flex items-center">
+                            <input id="perm-canScan" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="perm-canScan" class="ml-3 text-sm font-medium text-gray-700">Can Scan QR Codes (Take Attendance)</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input id="perm-viewReports" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="perm-viewReports" class="ml-3 text-sm font-medium text-gray-700">Can View Attendance Reports</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input id="perm-liveMonitor" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="perm-liveMonitor" class="ml-3 text-sm font-medium text-gray-700">Can Access Live Monitor</label>
+                        </div>
+                    </div>
+                    
+                    <div class="items-center px-4 py-3 mt-4">
+                        <button onclick="savePermissions()" class="w-full px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700">
+                            Save Permissions
+                        </button>
+                        <button type="button" onclick="closeModal('permissions-modal')" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md hover:bg-gray-300">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="message-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="message-modal-title">Message</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500" id="message-modal-content"></p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button type="button" onclick="closeModal('message-modal')" class="w-full px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Ensure Lucide icons are rendered after the script loads
+        lucide.createIcons();
+
+        // Custom Nav Item Styling Class for easy reuse
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.add('flex', 'items-center', 'p-3', 'rounded-lg', 'text-gray-300', 'hover:bg-gray-800', 'hover:text-white', 'transition', 'duration-150');
+        });
+        document.querySelectorAll('.action-btn').forEach(item => {
+            item.classList.add('flex', 'items-center', 'px-4', 'py-2', 'font-semibold', 'rounded-xl', 'text-white', 'transition', 'duration-150', 'shadow-md');
+        });
+
+
+        // Toggle Sidebar for Mobile View
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        const backdrop = document.getElementById('backdrop');
+        const body = document.body;
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('-translate-x-full');
+            body.classList.toggle('sidebar-open');
+        }
+
+        menuButton.addEventListener('click', toggleSidebar);
+        backdrop.addEventListener('click', toggleSidebar); // Close sidebar when backdrop is clicked
+        document.getElementById('sidebar-close-button').addEventListener('click', toggleSidebar); // Close button in sidebar
+        
+        // ------------------------------------------------------------------------------------------------
+        // REQUIRED FIREBASE IMPORTS
+        // ------------------------------------------------------------------------------------------------
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        // **REALTIME DATABASE IMPORTS**
+        import { 
+            getDatabase, 
+            ref, 
+            onValue, 
+            set, 
+            push, 
+            remove, 
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+        
+        // Global Variables
+        const appId = 'studentattendanceqridsys'; // Directly use the project ID for simpler reference
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
+            authDomain: "studentattendanceqridsys.firebaseapp.com",
+            databaseURL: "https://studentattendanceqridsys-default-rtdb.firebaseio.com", // Used by RTDB
+            projectId: "studentattendanceqridsys",
+            storageBucket: "studentattendanceqridsys.firebasestorage.app",
+            messagingSenderId: "666194808312",
+            appId: "1:666194808312:web:4b919a6900833ce51b9a0d",
+            measurementId: "G-XFK13STCJK"
+        };
+
+        let app, auth, rtdb, userId = null; 
+        let isAuthReady = false;
+        let teachersData = []; // Global array to hold current teacher data
+        let allSections = new Set(); // Global Set to hold all unique sections from the entire database for section management
+        let allSectionsList = []; // Array of section names for dropdown/filter
+
+        // --- Utility Functions ---
+
+        /** Shows a custom message modal (replacing alert()) */
+        function showMessage(title, content) {
+            document.getElementById('message-modal-title').textContent = title;
+            document.getElementById('message-modal-content').textContent = content;
+            document.getElementById('message-modal').classList.remove('hidden');
+        }
+
+        /** Hides a modal by ID */
+        window.closeModal = function(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            // Clear forms on close
+            if (modalId === 'add-edit-modal') {
+                document.getElementById('teacher-form').reset();
+                document.getElementById('doc-id').value = '';
+            }
+        }
+
+        /**
+        * Initializes Firebase and authenticates the user.
+        */
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig, appId);
+                auth = getAuth(app);
+                rtdb = getDatabase(app); 
+
+                // Handle authentication state change
+                onAuthStateChanged(auth, (user) => {
+                    const statusEl = document.getElementById('auth-status');
+                    const userIdEl = document.getElementById('user-id');
+                    
+                    if (user) {
+                        statusEl.textContent = "Authenticated";
+                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
+                        statusEl.classList.add('text-green-500');
+                        userId = user.uid;
+                        userIdEl.textContent = userId;
+                    } else {
+                        statusEl.textContent = "Anonymous";
+                        statusEl.classList.remove('text-yellow-500', 'text-green-500');
+                        statusEl.classList.add('text-red-500');
+                        userId = null;
+                        userIdEl.textContent = 'Unauthenticated/Guest'; 
+                    }
+                    isAuthReady = true;
+                    // Once authenticated, start listening for data
+                    if (userId) {
+                        loadTeachers();
+                        loadAllSections(); // Load all sections from the database
+                    } else {
+                        // If unauthenticated, sign in anonymously
+                        signInAnonymously(auth);
+                    }
+                });
+                
+                // Initial sign-in attempt if not already signed in
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+                
+            } catch (error) {
+                console.error("Firebase initialization or sign-in failed:", error);
+                document.getElementById('auth-status').textContent = "ERROR";
+                document.getElementById('auth-status').classList.remove('text-yellow-500');
+                document.getElementById('auth-status').classList.add('text-red-500');
+            }
+        }
+
+        // --- Realtime Database Management ---
+
+        /** Gets the reference to the teachers collection in RTDB */
+        function getTeachersRef(teacherId = null) {
+            // RTDB path: /teachers/{teacherId}
+            return teacherId ? ref(rtdb, `teachers/${teacherId}`) : ref(rtdb, 'teachers');
+        }
+
+        /** Gets the reference to the students collection for extracting all unique sections */
+        function getStudentsRef() {
+             // RTDB path: /students
+            return ref(rtdb, 'students');
+        }
+        
+        /** * Real-time listener for the entire 'teachers' path.
+          * Updates the UI whenever data is added, edited, or deleted.
+          */
+        function loadTeachers() {
+            if (!isAuthReady || !rtdb) return;
+
+            const teachersRef = getTeachersRef();
+
+            // onValue sets up a real-time listener
+            onValue(teachersRef, (snapshot) => {
+                teachersData = [];
+                
+                const data = snapshot.val();
+                if (data) {
+                    // Iterate over the object keys (teacher IDs)
+                    Object.keys(data).forEach((key) => {
+                        const teacher = { id: key, ...data[key] };
+                        teachersData.push(teacher);
+                    });
+                }
+                
+                renderTeachers(teachersData);
+                document.getElementById('teacher-count').textContent = teachersData.length; 
+            }, (error) => {
+                console.error("Error loading teachers from RTDB:", error);
+                showMessage("Database Error", "Failed to load teacher data in real-time. Check console for details.");
+            });
+        }
+        
+        /**
+         * Real-time listener to load all unique sections from the students collection.
+         */
+        function loadAllSections() {
+            if (!isAuthReady || !rtdb) return;
+            
+            const studentsRef = getStudentsRef();
+
+            onValue(studentsRef, (snapshot) => {
+                allSections.clear();
+                const data = snapshot.val();
+                
+                if (data) {
+                    Object.keys(data).forEach((key) => {
+                        const student = data[key];
+                        // Ensure section exists and is a non-empty string before adding
+                        if (student.section && typeof student.section === 'string' && student.section.trim() !== '') {
+                            allSections.add(student.section.trim());
+                        }
+                    });
+                }
+                
+                // Convert set to a sorted array for consistent display
+                allSectionsList = Array.from(allSections).sort();
+                
+                // Re-render the filter dropdown and current teacher table (to ensure new sections are reflected)
+                updateSectionFilter(allSectionsList);
+                filterTeachers(); // Re-apply current filter
+            }, (error) => {
+                console.error("Error loading sections from RTDB:", error);
+                // Note: No need for a modal, just log, as this is auxiliary data.
+            });
+        }
+        
+        /**
+         * Saves or updates a teacher record.
+         */
+        document.getElementById('teacher-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const docId = document.getElementById('doc-id').value;
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!name || !email || !password) {
+                showMessage("Validation Error", "All fields are required.");
+                return;
+            }
+
+            // Simple validation for email format (optional)
+            if (!email.includes('@') || !email.includes('.')) {
+                showMessage("Validation Error", "Please enter a valid email address.");
+                return;
+            }
+
+            const isEditing = docId !== '';
+            let teacherId = docId;
+
+            // Find a unique key if adding a new record (using `push` is better than guessing a key)
+            if (!isEditing) {
+                teacherId = push(getTeachersRef()).key; 
+            }
+
+            // Prepare the data to be saved/updated
+            const teacherData = {
+                name: name,
+                email: email,
+                password: password, // WARNING: Storing plaintext password for "demo only" as per spec. This is highly insecure.
+                updated_at: serverTimestamp()
+            };
+
+            // If adding a new teacher, set the creation timestamp, and default sections/permissions
+            if (!isEditing) {
+                teacherData.created_at = serverTimestamp();
+                teacherData.sections = {}; // Initialize with empty object
+                teacherData.permissions = {
+                    canScan: false, 
+                    viewReports: false, 
+                    liveMonitor: false 
+                };
+            }
+            
+            try {
+                // Get existing data to merge, or use an empty object if creating new.
+                const existingTeacher = isEditing ? teachersData.find(t => t.id === docId) : {};
+
+                // Set/Update the data at the specific teacher path
+                await set(getTeachersRef(teacherId), {
+                    // Merge existing data to ensure sections/permissions are not wiped out on edit
+                    ...existingTeacher,
+                    ...teacherData 
+                });
+
+                closeModal('add-edit-modal');
+                showMessage("Success", `Teacher **${name}** has been ${isEditing ? 'updated' : 'added'} successfully.`);
+            } catch (error) {
+                console.error("Error saving teacher:", error);
+                showMessage("Save Error", `Failed to save teacher record: ${error.message}`);
+            }
+        });
+
+        /**
+          * Deletes a teacher record.
+          */
+        window.deleteTeacher = async function(teacherId, teacherName) {
+            if (confirm(`Are you sure you want to permanently delete the record for ${teacherName}? This action cannot be undone.`)) {
+                try {
+                    // Remove the record from the database
+                    await remove(getTeachersRef(teacherId));
+                    showMessage("Deleted!", `${teacherName} has been permanently removed from the roster.`);
+                } catch (error) {
+                    console.error("Error deleting teacher:", error);
+                    showMessage("Delete Error", `Failed to delete teacher record: ${error.message}`);
+                }
+            }
+        };
+
+        /**
+         * Saves the section assignments for a teacher.
+         */
+        window.saveSections = async function() {
+            const teacherId = document.getElementById('sections-teacher-id').value;
+            const teacherName = document.getElementById('sections-teacher-name').textContent;
+            const container = document.getElementById('section-checkbox-container');
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            const assignedSections = {};
+
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    // Use the section name from the data attribute
+                    assignedSections[checkbox.dataset.sectionName] = true;
+                }
+            });
+
+            try {
+                // Fetch the current teacher object to preserve other fields
+                const teacherToUpdate = teachersData.find(t => t.id === teacherId);
+
+                if (!teacherToUpdate) {
+                    showMessage("Error", "Teacher record not found for updating sections.");
+                    return;
+                }
+
+                // Update only the 'sections' and 'updated_at' fields
+                await set(getTeachersRef(teacherId), {
+                    ...teacherToUpdate, // Preserve existing data
+                    sections: assignedSections,
+                    updated_at: serverTimestamp()
+                });
+
+                closeModal('sections-modal');
+                showMessage("Success", `Section assignments for **${teacherName}** saved successfully.`);
+
+            } catch (error) {
+                console.error("Error saving sections:", error);
+                showMessage("Save Error", `Failed to save section assignments: ${error.message}`);
+            }
+        }
+        
+        /**
+         * Saves the permissions for a teacher.
+         */
+        window.savePermissions = async function() {
+            const teacherId = document.getElementById('permissions-teacher-id').value;
+            const teacherName = document.getElementById('permissions-teacher-name').textContent;
+            
+            const permissions = {
+                canScan: document.getElementById('perm-canScan').checked,
+                viewReports: document.getElementById('perm-viewReports').checked,
+                liveMonitor: document.getElementById('perm-liveMonitor').checked,
+            };
+
+            try {
+                // Fetch the current teacher object to preserve other fields
+                const teacherToUpdate = teachersData.find(t => t.id === teacherId);
+
+                if (!teacherToUpdate) {
+                    showMessage("Error", "Teacher record not found for updating permissions.");
+                    return;
+                }
+
+                // Update only the 'permissions' and 'updated_at' fields
+                await set(getTeachersRef(teacherId), {
+                    ...teacherToUpdate, // Preserve existing data
+                    permissions: permissions,
+                    updated_at: serverTimestamp()
+                });
+
+                closeModal('permissions-modal');
+                showMessage("Success", `Permissions for **${teacherName}** saved successfully.`);
+
+            } catch (error) {
+                console.error("Error saving permissions:", error);
+                showMessage("Save Error", `Failed to save permissions: ${error.message}`);
+            }
+        }
+
+
+        // --- UI Rendering Functions ---
+
+        /** * Populates the Add/Edit Teacher Modal with existing data for editing.
+          */
+        window.showAddEditModal = function(teacherId = null) {
+            const modal = document.getElementById('add-edit-modal');
+            const title = document.getElementById('modal-title');
+            const form = document.getElementById('teacher-form');
+            form.reset();
+            document.getElementById('doc-id').value = '';
+
+            if (teacherId) {
+                const teacher = teachersData.find(t => t.id === teacherId);
+                if (teacher) {
+                    title.textContent = `Edit Teacher: ${teacher.name}`;
+                    document.getElementById('doc-id').value = teacherId;
+                    document.getElementById('name').value = teacher.name || '';
+                    document.getElementById('email').value = teacher.email || '';
+                    document.getElementById('password').value = teacher.password || ''; // NOTE: This loads the plaintext password back.
+                } else {
+                    showMessage("Error", "Teacher record not found.");
+                    return;
+                }
+            } else {
+                title.textContent = "Add New Teacher";
+            }
+            modal.classList.remove('hidden');
+        };
+
+        /** * Populates the Sections Modal with checkboxes for all known sections.
+          */
+        window.showSectionsModal = function(teacherId, teacherName) {
+            const modal = document.getElementById('sections-modal');
+            document.getElementById('sections-teacher-id').value = teacherId;
+            document.getElementById('sections-teacher-name').textContent = teacherName;
+            const container = document.getElementById('section-checkbox-container');
+            container.innerHTML = '';
+            
+            const teacher = teachersData.find(t => t.id === teacherId);
+            const assignedSections = teacher ? teacher.sections || {} : {};
+
+            if (allSectionsList.length === 0) {
+                 container.innerHTML = '<p class="text-sm text-red-500">No sections found yet. Please ensure at least one student is registered with a section name.</p>';
+            } else {
+                allSectionsList.forEach(section => {
+                    const isChecked = assignedSections[section] === true;
+                    
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center';
+                    div.innerHTML = `
+                        <input id="sec-${section.replace(/\s/g, '-')}" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-section-name="${section}" ${isChecked ? 'checked' : ''}>
+                        <label for="sec-${section.replace(/\s/g, '-')}" class="ml-3 text-sm font-medium text-gray-700">${section}</label>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+            
+            modal.classList.remove('hidden');
+        };
+
+        /** * Populates the Permissions Modal for the selected teacher.
+          */
+        window.showPermissionsModal = function(teacherId, teacherName) {
+            const modal = document.getElementById('permissions-modal');
+            document.getElementById('permissions-teacher-id').value = teacherId;
+            document.getElementById('permissions-teacher-name').textContent = teacherName;
+            
+            const teacher = teachersData.find(t => t.id === teacherId);
+            const permissions = teacher ? teacher.permissions || {} : {};
+
+            document.getElementById('perm-canScan').checked = permissions.canScan === true;
+            document.getElementById('perm-viewReports').checked = permissions.viewReports === true;
+            document.getElementById('perm-liveMonitor').checked = permissions.liveMonitor === true;
+
+            modal.classList.remove('hidden');
+        };
+
+        /**
+         * Renders the filtered list of teachers to the table body.
+         * @param {Array} list - The array of teacher objects to render.
+         */
+        function renderTeachers(list) {
+            const tableBody = document.getElementById('teachers-table-body');
+            tableBody.innerHTML = '';
+            const emptyState = document.getElementById('empty-state');
+
+            if (list.length === 0) {
+                emptyState.classList.remove('hidden');
+                tableBody.innerHTML = '';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            
+            list.forEach(teacher => {
+                const assignedSections = Object.keys(teacher.sections || {})
+                    .filter(sec => teacher.sections[sec] === true) // Filter for assigned sections
+                    .join(', ');
+
+                const row = tableBody.insertRow();
+                row.className = 'hover:bg-gray-50';
+
+                // Name Column
+                row.insertCell().innerHTML = `<div class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${teacher.name}</div>`;
+                
+                // Email (ID) Column
+                row.insertCell().innerHTML = `<div class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${teacher.email} <span class="text-xs text-gray-400 block break-all">(${teacher.id})</span></div>`;
+                
+                // Sections Assigned Column
+                row.insertCell().innerHTML = `<div class="px-4 py-4 text-sm text-gray-700 max-w-[200px] truncate">${assignedSections || '<span class="text-gray-400">No sections assigned</span>'}</div>`;
+
+                // Actions Column
+                const actionsCell = row.insertCell();
+                actionsCell.className = 'px-4 py-4 whitespace-nowrap text-right text-sm font-medium';
+                actionsCell.innerHTML = `
+                    <div class="flex space-x-2">
+                        <button onclick="showSectionsModal('${teacher.id}', '${teacher.name.replace(/'/g, "\\'")}')" title="Assign Sections"
+                            class="text-blue-600 hover:text-blue-900 p-1 rounded-md bg-blue-100 hover:bg-blue-200">
+                            <i data-lucide="blocks-2" class="lucide-icon w-5 h-5"></i>
+                        </button>
+                        <button onclick="showPermissionsModal('${teacher.id}', '${teacher.name.replace(/'/g, "\\'")}')" title="Set Permissions"
+                            class="text-green-600 hover:text-green-900 p-1 rounded-md bg-green-100 hover:bg-green-200">
+                            <i data-lucide="key-round" class="lucide-icon w-5 h-5"></i>
+                        </button>
+                        <button onclick="showAddEditModal('${teacher.id}')" title="Edit Teacher"
+                            class="text-yellow-600 hover:text-yellow-900 p-1 rounded-md bg-yellow-100 hover:bg-yellow-200">
+                            <i data-lucide="pencil" class="lucide-icon w-5 h-5"></i>
+                        </button>
+                        <button onclick="deleteTeacher('${teacher.id}', '${teacher.name.replace(/'/g, "\\'")}')" title="Delete Teacher"
+                            class="text-red-600 hover:text-red-900 p-1 rounded-md bg-red-100 hover:bg-red-200">
+                            <i data-lucide="trash-2" class="lucide-icon w-5 h-5"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            // Re-render Lucide icons for the newly added buttons
+            lucide.createIcons();
+        }
+
+        /**
+         * Updates the Section Filter dropdown with the list of unique sections.
+         * @param {Array} sectionsList - Sorted array of section names.
+         */
+        function updateSectionFilter(sectionsList) {
+            const filter = document.getElementById('section-filter');
+            const currentSelection = filter.value;
+            filter.innerHTML = '<option value="">All Sections</option>'; // Keep the default option
+            
+            sectionsList.forEach(section => {
+                const option = document.createElement('option');
+                option.value = section;
+                option.textContent = section;
+                if (section === currentSelection) {
+                    option.selected = true;
+                }
+                filter.appendChild(option);
+            });
+        }
+        
+        /**
+         * Filters the teachersData array based on search input and section filter.
+         * Renders the filtered results.
+         */
+        window.filterTeachers = function() {
+            const searchInput = document.getElementById('search-input').value.toLowerCase();
+            const sectionFilter = document.getElementById('section-filter').value;
+
+            const filteredList = teachersData.filter(teacher => {
+                const nameMatch = teacher.name.toLowerCase().includes(searchInput);
+                const emailMatch = teacher.email.toLowerCase().includes(searchInput);
+                const searchMatch = nameMatch || emailMatch;
+
+                const sectionMatch = sectionFilter === '' || (teacher.sections && teacher.sections[sectionFilter] === true);
+
+                return searchMatch && sectionMatch;
+            });
+
+            renderTeachers(filteredList);
+        }
+
+
+        // --- Initialization ---
+
+        // Start the Firebase initialization process
+        initializeFirebase();
+
+    </script>
+</body>
+</html>
