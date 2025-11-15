@@ -77,9 +77,8 @@
         #video-container {
             position: relative;
             width: 100%;
-            /* Use a 4:3 aspect ratio which is often better for portrait-mode QR scanning on mobile, 
-                but 16/9 is also fine if the feed is meant to be landscape. */
-            aspect-ratio: 16 / 9; /* Use 16/9 as per original code's intent */
+            /* Use a 16:9 aspect ratio */
+            aspect-ratio: 16 / 9; 
             max-height: 400px; /* Keep height limit */
             border-radius: 0.75rem;
             overflow: hidden; /* Important: keeps children contained and respects border-radius */
@@ -90,9 +89,11 @@
         #video-feed {
             width: 100%;
             height: 100%;
-            /* Remove explicit aspect-ratio here, the container controls it */
             object-fit: cover; 
-            /* Remove background color and border-radius here, container handles it */
+        }
+        /* Hidden canvas for video processing */
+        #qr-canvas {
+            display: none;
         }
 
         .scanning-focus {
@@ -133,7 +134,6 @@
             border-radius: 0.5rem;
             box-sizing: border-box;
 
-            /* You can use a simpler border image for better compatibility/simplicity */
             /* This applies a blue corner only */
             border-top: 5px solid #3b82f6;
             border-bottom: 5px solid #3b82f6;
@@ -218,13 +218,14 @@
                 </h2>
                 <div id="video-container" class="relative mb-4 shadow-lg">
                     <video id="video-feed" autoplay playsinline></video>
+                    <canvas id="qr-canvas"></canvas>
                     <div class="scanning-focus"></div>
                 </div>
                 
                 <div class="flex flex-col sm:flex-row gap-4 mb-4">
                     <select id="camera-selector" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Select Camera (Laptop/Phone/Tablet)</option>
-                        </select>
+                        <option value="">Select Camera (Loading...)</option>
+                    </select>
                     
                     <select id="class-selector" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Select Class to Scan For</option>
@@ -358,8 +359,7 @@
                 </div>
             </div>
         </div>
-
-    </div> 
+        </div> 
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -375,7 +375,7 @@
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // --- Firebase Configuration ---
+        // --- Firebase Configuration (REPLACE WITH YOUR OWN CREDENTIALS) ---
         const firebaseConfig = {
             apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
             authDomain: "studentattendanceqridsys.firebaseapp.com",
@@ -402,14 +402,19 @@
         const scannedNameEl = document.getElementById('scanned-name');
         const scannedSectionEl = document.getElementById('scanned-section');
         const scannedStatusEl = document.getElementById('scanned-status');
+        const scannedTypeEl = document.getElementById('scanned-type');
         const scanStatusBoxEl = document.getElementById('scan-status-box');
         const scanResultPanelEl = document.getElementById('scan-result-panel');
         const recentScansBodyEl = document.getElementById('recent-scans-body');
         const videoElement = document.getElementById('video-feed');
-        const canvasElement = document.createElement('canvas'); // Needed for jsQR scanning
+        const canvasElement = document.getElementById('qr-canvas'); // Use the hidden canvas
         const canvasContext = canvasElement.getContext('2d');
+        const cameraSelectorEl = document.getElementById('camera-selector');
+        const checkInBtn = document.getElementById('check-in-btn');
+        const checkOutBtn = document.getElementById('check-out-btn');
         let stream = null;
         let animationFrameId = null;
+        let lastScannedId = null; // To prevent rapid double-scanning
 
 
         // --- Helper Functions to get Firebase Refs ---
@@ -427,9 +432,42 @@
             return ref(rtdb, `attendance/${classId}/${date}`);
         }
         function getRecentLogsQuery() {
-            // Query the last 10 logs across all attendance records (requires a new top-level logs collection for simplicity or more complex multi-path queries)
-            // For simplicity, we'll query recent logs from a generic 'all_logs' path, sorted by timestamp.
+            // Query the last 10 logs from 'all_logs' path, sorted by timestamp.
             return query(ref(rtdb, 'all_logs'), orderByChild('timestamp'), limitToLast(10));
+        }
+
+        /**
+         * Updates the result panel with the last scan's status.
+         * @param {string} name - Student name or Error message.
+         * @param {string} statusMsg - Detailed status message.
+         * @param {string} color - Tailwind color (e.g., 'green', 'red', 'yellow').
+         * @param {string} iconName - Lucide icon name.
+         * @param {string} section - Student section.
+         * @param {string} id - Student ID.
+         */
+        function displayScanResult(name, statusMsg, color, iconName, section = 'N/A', id = 'N/A') {
+            scannedIdEl.textContent = id;
+            scannedNameEl.textContent = name;
+            scannedSectionEl.textContent = `Section: ${section}`;
+            scannedTypeEl.textContent = scanType;
+            scannedTypeEl.classList.remove('text-blue-600', 'text-purple-600');
+            scannedTypeEl.classList.add(scanType === 'Check-In' ? 'text-blue-600' : 'text-purple-600');
+            
+            scannedStatusEl.textContent = statusMsg;
+            scannedStatusEl.classList.remove('text-gray-500', 'text-red-600', 'text-green-600', 'text-yellow-600');
+            scannedStatusEl.classList.add(`text-${color}-600`);
+
+            // Visually highlight the result panel
+            scanResultPanelEl.classList.remove('border-l-4', 'border-gray-300', 'border-red-500', 'border-green-500', 'border-yellow-500');
+            scanResultPanelEl.classList.add(`border-l-4`, `border-${color}-500`);
+
+            // Optional: Show status box with a large icon (not fully implemented in original HTML, but for future use)
+            // const iconEl = scanStatusBoxEl.querySelector('i');
+            // iconEl.setAttribute('data-lucide', iconName);
+            // lucide.createIcons();
+            // scanStatusBoxEl.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            // scanStatusBoxEl.classList.add(`bg-${color}-100`, `text-${color}-800`);
+            // scanStatusBoxEl.querySelector('p').textContent = statusMsg;
         }
 
 
@@ -443,7 +481,9 @@
                 authStatusEl.classList.add('text-green-500');
                 loadStudentsData();
                 loadRecentLogs();
-                // Camera init is now handled by DOMContentLoaded below
+                
+                // Initial camera setup
+                setupCameraSelector(); 
             } else {
                 authStatusEl.textContent = 'Unauthenticated';
                 authStatusEl.classList.remove('text-green-500');
@@ -465,8 +505,6 @@
 
         // Load and render recent logs
         function loadRecentLogs() {
-            // Note: Firebase Realtime Database is not ideal for complex, large-scale queries like "latest 10 logs from all classes."
-            // This implementation assumes a simplified 'all_logs' collection for a cleaner example.
             const logsQuery = getRecentLogsQuery();
             onValue(logsQuery, (snapshot) => {
                 const data = snapshot.val() || {};
@@ -487,7 +525,13 @@
             }
 
             logs.forEach(log => {
-                const student = studentsData[log.studentKey] || { studentId: log.studentId, firstName: 'Unknown', lastName: 'Student', section: 'N/A' };
+                // Look up student details from the log or cache
+                const student = studentsData[log.studentKey] || { 
+                    studentId: log.studentId, 
+                    firstName: log.firstName || 'Unknown', 
+                    lastName: log.lastName || 'Student', 
+                    section: log.section || 'N/A' 
+                };
                 const fullName = `${student.lastName}, ${student.firstName}`;
                 const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const statusColor = log.status === 'Present' ? 'bg-green-100 text-green-800' : 
@@ -495,11 +539,11 @@
                                     'bg-gray-100 text-gray-800';
                 
                 const row = recentScansBodyEl.insertRow();
-                row.className = `hover:bg-${statusColor.split('-')[1]}-50/50`;
+                row.className = `hover:bg-gray-50`;
                 row.innerHTML = `
                     <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${student.studentId}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${fullName}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${log.classId}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${log.classId || 'N/A'}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-900">${time}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-center text-${log.type === 'Check-In' ? 'blue' : 'purple'}-600 font-semibold">${log.type}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
@@ -518,12 +562,13 @@
          * @param {string} classId - The ID of the class currently being scanned for.
          */
         async function markAttendance(studentId, type, classId) {
-            const studentsRef = getStudentsRef();
             const attendanceRef = getAttendanceLogsRef();
             const allLogsRef = ref(rtdb, 'all_logs');
+            lastScannedId = studentId; // Set last scanned ID to prevent immediate rescan
 
             if (!classId || !attendanceRef) {
-                displayScanResult("Error", "Please select a class before scanning.", "red", "alert-triangle");
+                displayScanResult("Error", "Please select a **class** before scanning.", "red", "alert-triangle");
+                lastScannedId = null; // Clear if it was an error
                 return;
             }
 
@@ -531,31 +576,32 @@
             let studentKey = null;
             let studentData = null;
 
-            // Simple lookup in cached data
+            // Look up in cached data by studentId
             const key = Object.keys(studentsData).find(k => studentsData[k].studentId === studentId);
             if (key) {
                 studentKey = key;
                 studentData = studentsData[key];
             } else {
-                displayScanResult("Error", `Student ID ${studentId} not found in database.`, "red", "x-circle");
+                displayScanResult("Error", `Student ID **${studentId}** not found.`, "red", "x-circle", "N/A", studentId);
+                setTimeout(() => { lastScannedId = null; }, 3000); // Allow rescan after a delay
                 return;
             }
 
-            // 2. Determine attendance status (simplified: always 'Present' for a scan unless late logic is added)
-            // Real-world: Compare scan time against class start/end time to determine 'Late' status.
-            let status = 'Present';
+            // 2. Determine attendance status (simplified: always 'Present' for a scan)
+            // In a real system, you'd check time vs. class schedule for 'Late' status.
+            let status = 'Present'; 
 
             // 3. Prepare the log data
             const timestamp = Date.now();
             const logEntry = {
                 studentId: studentId,
-                studentKey: studentKey, // For easier lookup in other tables
+                studentKey: studentKey, 
                 classId: classId,
-                type: type, // 'Check-In' or 'Check-Out'
-                status: status, // 'Present', 'Late', 'Absent' (Absent is manual)
+                type: type, 
+                status: status, 
                 timestamp: timestamp,
                 loggedBy: userId,
-                // Add student name/section for easier log viewing
+                // Include student data for easier log viewing
                 firstName: studentData.firstName,
                 lastName: studentData.lastName,
                 section: studentData.section
@@ -580,9 +626,13 @@
                     studentData.studentId
                 );
 
+                // Re-enable scanning for a different student immediately, or for the same student after a delay
+                setTimeout(() => { lastScannedId = null; }, 5000); // 5 second cool-down for the same ID
+
             } catch (error) {
                 console.error("Error logging attendance:", error);
-                displayScanResult("DB Error", "Failed to save attendance log.", "red", "x-circle");
+                displayScanResult("DB Error", "Failed to save attendance log.", "red", "x-circle", "N/A", studentId);
+                setTimeout(() => { lastScannedId = null; }, 3000); // Allow rescan after a delay
             }
         }
 
@@ -590,16 +640,17 @@
         
         // This function will be called on a successful QR scan (studentId is the QR data)
         function onQRCodeScanned(studentId) {
-            // Avoid scanning the same code multiple times in quick succession
-            if (studentId === scannedIdEl.textContent) return; 
+            // Check for rapid rescan protection
+            if (studentId === lastScannedId) return; 
 
             const classId = classSelectorEl.value;
             if (!classId) {
-                 displayScanResult("Error", "Please select a class first.", "red", "alert-triangle");
+                 // Do not attempt to log if no class is selected, but inform the user.
+                 displayScanResult("Error", "Please select a **class** first.", "red", "alert-triangle");
                  return;
             }
             
-            // Log the attendance to Firebase
+            // The studentId is the QR data (e.g., "S1234567")
             markAttendance(studentId, scanType, classId);
         }
 
@@ -611,10 +662,10 @@
                 canvasElement.width = videoElement.videoWidth;
                 canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
                 
-                // Get the image data from the center of the canvas (where the scanning focus is)
+                // Get the image data from the canvas
                 const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert",
+                    inversionAttempts: "dontInvert", // Often helps with color QR codes
                 });
 
                 if (code) {
@@ -624,18 +675,26 @@
             animationFrameId = requestAnimationFrame(tick);
         }
 
-        // Starts the video stream and QR scanning
-        async function startScanning(deviceId) {
+        // Stops the current camera stream
+        function stopScanning() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
-                if (animationFrameId) cancelAnimationFrame(animationFrameId);
             }
+            videoElement.srcObject = null;
+        }
+
+
+        // Starts the video stream and QR scanning
+        async function startScanning(deviceId) {
+            stopScanning(); // Stop any existing stream
 
             try {
                 const constraints = {
                     video: { 
+                        // Use the selected deviceId, otherwise let the browser pick (default is often the rear camera on mobile)
                         deviceId: deviceId ? { exact: deviceId } : undefined,
-                        facingMode: deviceId ? undefined : 'environment' // Fallback to environment on mobile if no device selected
+                        facingMode: deviceId ? undefined : 'environment' 
                     }
                 };
                 
@@ -647,116 +706,126 @@
                 videoElement.onloadedmetadata = () => {
                     requestAnimationFrame(tick);
                 };
+                console.log(`Scanning started using device: ${deviceId || 'default/environment'}`);
 
             } catch (err) {
                 console.error("Error accessing the camera:", err);
+                // Display an error message to the user in the video container area
                 const videoContainer = document.getElementById('video-container');
-                videoContainer.innerHTML = '<div class="flex items-center justify-center w-full h-full p-4"><p class="text-center text-red-800 font-semibold bg-red-200 p-4 rounded-lg">Camera access denied or device not found. Please enable camera permissions.</p></div>';
+                videoContainer.innerHTML = `<div class="p-4 text-center text-white">
+                    <i data-lucide="camera-off" class="w-10 h-10 mx-auto mb-2 text-red-400"></i>
+                    <p class="font-bold">Camera Error</p>
+                    <p class="text-sm">Please ensure camera permissions are granted and select a valid camera.</p>
+                </div>`;
+                lucide.createIcons(); // Re-render the new icon
             }
         }
 
-        // Populates the camera selector dropdown
-        async function populateCameraSelector() {
-            const selector = document.getElementById('camera-selector');
-            selector.innerHTML = '<option value="">Select Camera (Auto)</option>';
+        // Populates the camera selection dropdown
+        async function setupCameraSelector() {
+            cameraSelectorEl.innerHTML = '<option value="">Select Camera...</option>';
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                videoDevices.forEach((device, index) => {
+                
+                if (videoDevices.length === 0) {
+                    cameraSelectorEl.innerHTML = '<option value="">No cameras found</option>';
+                    return;
+                }
+
+                let defaultDeviceId = null;
+
+                videoDevices.forEach(device => {
                     const option = document.createElement('option');
                     option.value = device.deviceId;
-                    option.textContent = device.label || `Camera ${index + 1}`;
-                    selector.appendChild(option);
+                    option.textContent = device.label || `Camera ${videoDevices.indexOf(device) + 1}`;
+                    cameraSelectorEl.appendChild(option);
+
+                    // Attempt to pre-select the 'environment' or 'back' camera as default for scanning
+                    if (device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('environment')) {
+                        defaultDeviceId = device.deviceId;
+                    }
                 });
-                // Start scanning with the default (first) camera or environment
-                startScanning(videoDevices.length > 0 ? videoDevices[0].deviceId : null);
+
+                // Select the best device or the first one
+                const deviceToStart = defaultDeviceId || videoDevices[0].deviceId;
+                if (deviceToStart) {
+                    cameraSelectorEl.value = deviceToStart;
+                    startScanning(deviceToStart);
+                }
 
             } catch (err) {
                 console.error("Error enumerating devices:", err);
+                cameraSelectorEl.innerHTML = '<option value="">Failed to list cameras</option>';
             }
         }
 
 
-        // --- 5. UI/Event Handlers ---
-
-        function displayScanResult(name, statusMessage, color, icon, section, studentId) {
-            scannedIdEl.textContent = studentId || 'N/A';
-            scannedNameEl.textContent = name;
-            scannedSectionEl.textContent = `Section: ${section || 'N/A'}`;
-            scannedStatusEl.textContent = statusMessage;
-            scannedStatusEl.className = `text-base font-bold text-${color}-600`;
-            
-            // Status box update
-            scanStatusBoxEl.classList.remove('hidden', 'bg-red-50', 'bg-yellow-50', 'bg-green-50', 'border-red-500', 'border-yellow-500', 'border-green-500');
-            scanStatusBoxEl.classList.add(`bg-${color}-50`, `border-${color}-500`);
-            scanStatusBoxEl.querySelector('i').setAttribute('data-lucide', icon);
-            scanStatusBoxEl.querySelector('i').className = `w-8 h-8 text-${color}-600 mx-auto mb-2`;
-            scanStatusBoxEl.querySelector('p').textContent = statusMessage;
-            scanStatusBoxEl.querySelector('p').className = `text-lg font-bold text-${color}-800`;
-            
-            // Main panel border update
-            scanResultPanelEl.classList.remove('border-l-red-500', 'border-l-yellow-500', 'border-l-green-500', 'border-l-gray-300');
-            scanResultPanelEl.classList.add(`border-l-${color}-500`);
-
-            lucide.createIcons(); // Re-render the new icon
-            
-            // Clear result after 5 seconds
-            setTimeout(() => {
-                scanStatusBoxEl.classList.add('hidden');
-            }, 5000);
-        }
-        
-        // Modal placeholder functions
-        window.openManualMarkModal = () => document.getElementById('manual-mark-modal').classList.remove('hidden');
-        window.closeManualMarkModal = () => document.getElementById('manual-mark-modal').classList.add('hidden');
-        window.openExcusedAbsenceModal = () => alert("Open Excused Absence Modal (Functionality not implemented)");
-        window.openRemarksModal = () => alert("Open Remarks Modal (Functionality not implemented)");
-
+        // --- 5. Event Listeners and UI Logic ---
 
         document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            
-            // Sidebar Toggle
-            const body = document.body;
-            document.getElementById('menu-button').addEventListener('click', () => {
-                body.classList.toggle('sidebar-open');
-            });
+            // Re-render Lucide icons after content load
+            lucide.createIcons(); 
+        });
 
-            // Camera selector change handler
-            document.getElementById('camera-selector').addEventListener('change', (e) => {
+        // Sidebar toggle for mobile
+        document.getElementById('menu-button').addEventListener('click', () => {
+            document.body.classList.toggle('sidebar-open');
+        });
+        
+        // Camera Selector Change
+        cameraSelectorEl.addEventListener('change', (e) => {
+            if (e.target.value) {
                 startScanning(e.target.value);
-            });
-
-            // Check-In/Check-Out Button Toggle
-            const checkInBtn = document.getElementById('check-in-btn');
-            const checkOutBtn = document.getElementById('check-out-btn');
-            const scannedTypeEl = document.getElementById('scanned-type');
-
-            function setActiveButton(activeBtn, inactiveBtn, typeText, typeColor) {
-                scanType = typeText;
-                activeBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-                activeBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                inactiveBtn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                inactiveBtn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
-                scannedTypeEl.textContent = typeText;
-                scannedTypeEl.className = 'text-base font-semibold ' + typeColor;
-            }
-
-            checkInBtn.addEventListener('click', () => {
-                setActiveButton(checkInBtn, checkOutBtn, 'Check-In', 'text-blue-600');
-            });
-            checkOutBtn.addEventListener('click', () => {
-                setActiveButton(checkOutBtn, checkInBtn, 'Check-Out', 'text-purple-600');
-            });
-
-            // Initial Camera Setup
-            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-                populateCameraSelector();
             } else {
-                console.warn("MediaDevices API not supported.");
+                stopScanning();
+                displayScanResult("Camera Off", "Camera stopped. Select a device to start.", "gray", "camera-off");
             }
         });
 
+        // Attendance Type Buttons
+        function updateScanType(newType) {
+            scanType = newType;
+            scannedTypeEl.textContent = newType;
+            
+            // Update button styles
+            checkInBtn.classList.remove('bg-blue-600', 'text-white', 'bg-gray-200', 'text-gray-700');
+            checkOutBtn.classList.remove('bg-blue-600', 'text-white', 'bg-gray-200', 'text-gray-700');
+
+            if (newType === 'Check-In') {
+                checkInBtn.classList.add('bg-blue-600', 'text-white');
+                checkOutBtn.classList.add('bg-gray-200', 'text-gray-700');
+                scannedTypeEl.classList.remove('text-purple-600');
+                scannedTypeEl.classList.add('text-blue-600');
+            } else {
+                checkOutBtn.classList.add('bg-blue-600', 'text-white');
+                checkInBtn.classList.add('bg-gray-200', 'text-gray-700');
+                scannedTypeEl.classList.remove('text-blue-600');
+                scannedTypeEl.classList.add('text-purple-600');
+            }
+        }
+
+        checkInBtn.addEventListener('click', () => updateScanType('Check-In'));
+        checkOutBtn.addEventListener('click', () => updateScanType('Check-Out'));
+
+        // Class Selector Change
+        classSelectorEl.addEventListener('change', () => {
+             displayScanResult("Ready", `Class set to: ${classSelectorEl.value}. Waiting for Scan...`, "gray", "scan-line");
+        });
+
+        // Modal functions (placeholder implementations)
+        window.openManualMarkModal = function() {
+            document.getElementById('manual-mark-modal').classList.remove('hidden');
+        }
+        window.closeManualMarkModal = function() {
+            document.getElementById('manual-mark-modal').classList.add('hidden');
+        }
+        window.openExcusedAbsenceModal = function() {
+            alert('Opening Excused Absence Modal (Placeholder)');
+        }
+        window.openRemarksModal = function() {
+            alert('Opening Add Remarks Modal (Placeholder)');
+        }
     </script>
 </body>
 </html>
