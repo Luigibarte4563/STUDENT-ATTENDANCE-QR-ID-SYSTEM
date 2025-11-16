@@ -3,132 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Attendance Monitor - College QR Attendance System</title>
+    <title>Live Attendance Monitor | QR Attend System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* Custom font and base styling */
+        /* 1. Base Setup & Font */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         :root { font-family: 'Inter', sans-serif; }
-        
-        /* Custom styles for better aesthetics */
-        .stat-card {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
-            transition: transform 0.2s;
-        }
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-        }
         .lucide-icon { width: 1.25rem; height: 1.25rem; } 
         .stat-icon { width: 1.5rem; height: 1.5rem; } 
 
-        /* Base Nav Item Styling */
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            color: #d1d5db; /* gray-300 */
-            transition: background-color 0.15s, color 0.15s;
-        }
-        .nav-item:hover {
-            background-color: #1f2937; /* gray-800 */
-            color: white;
-        }
-        
-        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
-        
-        /* 1. Mobile Sidebar Positioning */
+        /* 2. FIX: Standard CSS Media Query for Sidebar Responsiveness (Matching Dashboard) */
         #sidebar {
-            --sidebar-width: 16rem; /* 256px for w-64 */
-            transition: transform 0.3s ease-in-out;
-            transform: translateX(calc(-1 * var(--sidebar-width)));
-            position: fixed; /* Always fixed for overlay */
-            top: 0; 
-            bottom: 0;
-            left: 0;
-            z-index: 50; /* Higher than button and backdrop */
-        }
-        
-        /* 2. Backdrop styling */
-        #backdrop {
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 40; /* Below sidebar */
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s, visibility 0.3s;
+            height: 100vh;
+            z-index: 50;
+            width: 16rem; /* Tailwind w-64 */
+            transform: translateX(0);
+            transition: transform 0.3s ease-in-out;
         }
         
-        /* 3. Main content padding adjustment to account for the new fixed mobile header (approx 4rem height) */
-        #main-content {
-            padding-top: 6rem; /* Increased space for the new fixed mobile header */
+        /* Mobile view: hidden by default (lg: is 1024px, so max-width: 1023px) */
+        @media (max-width: 1023px) {
+            #sidebar {
+                transform: translateX(-100%);
+            }
+        }
+        
+        #backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            display: none;
         }
 
-        /* 4. State when menu is open on small screens */
+        /* State for when the sidebar is open on mobile */
         .sidebar-open #sidebar {
             transform: translateX(0);
         }
+
         .sidebar-open #backdrop {
-            opacity: 1;
-            visibility: visible;
-        }
-        .sidebar-open body {
-            overflow: hidden; /* Prevent body scroll while sidebar is open */
+            display: block;
         }
 
-        /* 5. Desktop/Large Screen Reset (Standard side-by-side layout) */
-        @media (min-width: 1024px) { /* lg breakpoint */
-            #sidebar {
-                position: relative; /* Take up flow space */
-                transform: translateX(0); /* Always visible */
-                flex-shrink: 0;
-            }
-            #main-content {
-                padding-top: 1.5rem; /* Reset desktop padding */
-            }
-            #backdrop {
-                visibility: hidden !important;
-                opacity: 0 !important;
-            }
+        /* Custom styles for navigation links (Matching Dashboard) */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: #d1d5db; /* gray-300 */
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+        }
+        .nav-item:hover {
+            background-color: #374151; /* gray-700 */
+            color: #ffffff;
+        }
+        /* Ensure the active link is always prominent (Matched to current page) */
+        .nav-item.active {
+            background-color: #1f2937; /* A shade darker than hover, gray-800 */
+            color: #60a5fa; /* blue-400 */
+            font-weight: 600;
         }
         
+        /* Dashboard-style shadows for table/content card */
+        .content-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+
         /* Table Styling for better look */
         .table-row-present { background-color: #f0fdf4; } /* green-50 */
         .table-row-late { background-color: #fffbeb; } /* yellow-50 */
         .table-row-left { background-color: #eff6ff; } /* blue-50 */
         .table-row-unknown { background-color: #fef2f2; } /* red-50 */
-
+        
+        /* Custom Keyframes for a slow spin */
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin-slow 5s linear infinite;
+        }
     </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-gray-50 flex min-h-screen"> 
+
+<body class="bg-gray-50 min-h-screen">
     <div id="backdrop" class="lg:hidden"></div>
 
-    <div class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 lg:hidden p-4">
-        <div class="flex items-center justify-between">
-            <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50">
-                <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
-            </button>
-            
-            <header class="flex-1 text-center -ml-1">
-                <h1 class="text-xl font-extrabold text-gray-800 truncate">Live Monitor</h1>
-                <p class="text-xs text-gray-500">Real-Time Attendance Scans</p>
-            </header>
-            
-            <div class="w-8 h-8"></div> 
-        </div>
-    </div>
-    
     <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
         <div class="p-6 flex items-center justify-between border-b border-gray-800">
-            <div class="flex items-center">
-                <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
-                <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+            <div class="flex items-start">
+                <i data-lucide="qr-code" class="text-blue-400 mr-2 text-3xl mt-4"></i>
+                
+                <div class="flex flex-col text-xl font-bold text-blue-400 leading-tight">
+                    <span>QR Attend</span>
+                    <span>System</span>
+                </div>
             </div>
             <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
                 <i data-lucide="x" class="lucide-icon"></i>
@@ -136,8 +110,11 @@
         </div>
 
         <nav class="flex-1 overflow-y-auto p-4 space-y-2">
-            <a href="adminDashboard.html" class="nav-item"><i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>Dashboard Home</a>
-            <a href="adminLiveAttendanceMonitor.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
+            <a href="adminDashboard.html" class="nav-item"> 
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Dashboard Home
+            </a>
+            <a href="adminLiveAttendanceMonitor.html" class="nav-item active"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
             <a href="adminStudentManagement.html" class="nav-item"><i data-lucide="users" class="lucide-icon mr-3"></i>Student Management</a>
             <a href="adminStudentAccountManagement.html" class="nav-item"><i data-lucide="user-cog" class="lucide-icon mr-3"></i>Student Account Management</a>
             <a href="adminTeacherManagement.html" class="nav-item"><i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>Teacher Management</a>
@@ -146,126 +123,144 @@
             <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line" class="lucide-icon mr-3"></i>QR Code Manager</a>
             <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings" class="lucide-icon mr-3"></i>System Settings</a>
         </nav>
-        
+
         <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
             <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
             <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
         </div>
-
     </aside>
 
-    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
+    <div id="main-container" class="lg:pl-64 flex flex-col min-h-screen">
         
-        <header class="hidden lg:flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-            <div>
-                <h1 class="text-3xl font-extrabold text-gray-800">Live Attendance Monitor <i data-lucide="eye" class="inline-block text-blue-600"></i></h1>
-                <p class="text-gray-500">Real-time list of students scanning their QR code.</p>
-            </div>
-            
-            <div id="profile-dropdown-container" class="relative">
-                <button id="profile-button" class="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 transition duration-150">
-                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                        <i data-lucide="user" class="w-5 h-5"></i>
-                    </div>
-                    <div class="hidden lg:flex flex-col items-start">
-                        <span id="profile-name" class="text-sm font-semibold text-gray-800">Admin Name</span>
-                        <span id="profile-email" class="text-xs text-gray-500">admin@gmail.com</span>
-                    </div>
-                    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
-                </button>
-
-                <div id="profile-menu" class="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-2xl origin-top-right hidden z-40">
-                    <div class="p-3 border-b border-gray-100 lg:hidden">
-                        <p id="menu-name-mobile" class="text-sm font-semibold text-gray-800">Admin Name</p>
-                        <p id="menu-email-mobile" class="text-xs text-gray-500">admin@gmail.com</p>
-                    </div>
-                    <a href="#" id="change-password-link" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition duration-100 rounded-t-xl">
-                        <i data-lucide="key-round" class="w-4 h-4 mr-3 text-purple-500"></i> Change Password
-                    </a>
-                    <button id="logout-button" class="w-full text-left flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition duration-100 rounded-b-xl">
-                        <i data-lucide="log-out" class="w-4 h-4 mr-3 text-red-500"></i> Log Out
+        <div id="top-header" class="bg-white border-b border-gray-200 sticky top-0 z-30">
+            <div class="flex items-center justify-between p-4 lg:pr-6">
+                
+                <div class="flex items-center lg:hidden">
+                    <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50 mr-3">
+                        <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
                     </button>
+                    <div class="flex flex-col">
+                        <h1 class="text-xl font-extrabold text-gray-800 truncate">Live Monitor</h1>
+                        <p class="text-xs text-gray-500">Real-Time Attendance Scans</p>
+                    </div>
+                </div>
+                
+                <header class="hidden lg:block">
+                    <h1 class="text-2xl font-extrabold text-gray-800">Live Attendance Monitor <i data-lucide="eye" class="inline-block text-blue-600 w-6 h-6 ml-2"></i></h1>
+                    <p class="text-sm text-gray-500">Real-time list of students scanning their QR code.</p>
+                </header>
+
+                <div id="profile-dropdown-container" class="relative">
+                    <button id="profile-button" class="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 transition duration-150 focus:outline-none">
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                            <i data-lucide="user" class="w-5 h-5"></i>
+                        </div>
+                        <div class="hidden lg:flex flex-col items-start">
+                            <span id="profile-name" class="text-sm font-semibold text-gray-800">Admin Name</span>
+                            <span id="profile-email" class="text-xs text-gray-500">admin@gmail.com</span>
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+                    </button>
+
+                    <div id="profile-menu" class="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-2xl origin-top-right hidden z-40">
+                        <div class="p-3 border-b border-gray-100 lg:hidden">
+                            <p id="menu-name-mobile" class="text-sm font-semibold text-gray-800">Admin Name</p>
+                            <p id="menu-email-mobile" class="text-xs text-gray-500">admin@gmail.com</p>
+                        </div>
+                        <a href="#" id="change-password-link" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition duration-100 rounded-t-xl">
+                            <i data-lucide="key-round" class="w-4 h-4 mr-3 text-purple-500"></i> Change Password
+                        </a>
+                        <button id="logout-button" class="w-full text-left flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition duration-100 rounded-b-xl">
+                            <i data-lucide="log-out" class="w-4 h-4 mr-3 text-red-500"></i> Log Out
+                        </button>
+                    </div>
                 </div>
             </div>
-        </header>
+        </div>
+        
+        <main class="flex-1 p-4 lg:p-6 space-y-6">
+            
+            <div class="bg-white p-4 rounded-xl content-card flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0 lg:space-x-4">
+                <div class="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                    <i data-lucide="zap" class="w-5 h-5 text-red-500 animate-pulse"></i>
+                    <span>Status: <span id="refresh-time" class="text-green-600 font-bold">LIVE</span></span>
+                </div>
+                
+                <div class="flex flex-col lg:flex-row items-stretch lg:items-center space-y-3 lg:space-y-0 lg:space-x-3 w-full lg:w-auto">
+                    <input type="date" id="date-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500" value="">
+                    
+                    <select id="year-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Filter by Year Level</option>
+                        <option value="1">1st Year</option>
+                        <option value="2">2nd Year</option>
+                        <option value="3">3rd Year</option>
+                        <option value="4">4th Year</option>
+                        <option value="5">5th Year</option>
+                    </select>
 
-        <section class="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
-            <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
-                <h2 class="text-xl font-bold text-gray-800 flex items-center">
-                    Latest Scans 
-                    <span id="live-refresh-status" class="ml-3 text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded-full flex items-center">
-                        <i data-lucide="refresh-cw" class="w-3 h-3 mr-1 animate-spin-slow"></i> 
-                        Auto-Refresh: <span id="refresh-time">2s</span>
-                    </span>
-                </h2>
-                <div class="flex flex-wrap gap-3">
                     <select id="section-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Filter by Section</option>
                         </select>
-                    <select id="grade-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Filter by Grade</option>
-                        <option value="1">Grade 1</option>
-                        <option value="2">Grade 2</option>
-                        <option value="3">Grade 3</option>
-                        <option value="4">Grade 4</option>
-                    </select>
-                    <input type="date" id="date-filter" class="p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500" value="<%= new Date().toISOString().substring(0, 10) %>">
-                    <button id="apply-filters" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 text-sm flex items-center">
-                        <i data-lucide="filter" class="w-4 h-4 mr-1"></i> Apply
+                    
+                    <button id="apply-filters" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 text-sm font-medium flex items-center justify-center">
+                        <i data-lucide="filter" class="w-4 h-4 mr-2"></i> Apply Filters
                     </button>
                 </div>
             </div>
-
-            <div class="overflow-x-auto shadow-md sm:rounded-lg">
-                <table class="w-full text-sm text-left text-gray-500">
-                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Student Name</th>
-                            <th scope="col" class="px-6 py-3">Section</th>
-                            <th scope="col" class="px-6 py-3">Time In / Time Out</th>
-                            <th scope="col" class="px-6 py-3">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="attendance-list" class="divide-y divide-gray-200">
-                        <tr>
-                            <td colspan="4" class="px-6 py-4 text-center text-gray-500 italic">
-                                <i data-lucide="loader-2" class="w-5 h-5 inline-block mr-2 animate-spin text-blue-500"></i>
-                                Loading real-time data...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
             
-        </section>
+            <div class="bg-white rounded-xl content-card overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Student Name</th>
+                                <th scope="col" class="px-6 py-3">Section</th>
+                                <th scope="col" class="px-6 py-3">Time In / Out</th>
+                                <th scope="col" class="px-6 py-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-list">
+                            <tr>
+                                <td colspan="4" class="px-6 py-4 text-center text-gray-500 italic">
+                                    <i data-lucide="loader-2" class="w-5 h-5 inline-block mr-2 animate-spin text-blue-500"></i>
+                                    Waiting for authentication and data load...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-    </div> 
-
-    <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
-            <h3 class="text-xl font-bold mb-4 flex items-center">
-                <i data-lucide="lock" class="w-5 h-5 mr-2 text-purple-600"></i> Change Password
+        </main>
+        
+        <footer class="p-4 bg-white border-t border-gray-200 text-center text-xs text-gray-500 lg:pl-64">
+            &copy; 2025 QR Attend System. All rights reserved.
+        </footer>
+    </div>
+    
+    <div id="password-modal" class="hidden fixed inset-0 z-50 overflow-y-auto items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md m-4">
+            <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <i data-lucide="key-round" class="w-5 h-5 mr-2 text-purple-600"></i> Change Password
             </h3>
             <form id="change-password-form">
                 <div class="mb-4">
-                    <label for="new-password" class="block text-sm font-medium text-gray-700">New Password</label>
-                    <input type="password" id="new-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required minlength="6">
+                    <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">New Password (Min 6 characters)</label>
+                    <input type="password" id="new-password" name="new-password" required minlength="6" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
                 </div>
-                <div class="mb-6">
-                    <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
-                    <input type="password" id="confirm-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required minlength="6">
+                <div class="mb-4">
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                    <input type="password" id="confirm-password" name="confirm-password" required minlength="6" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
                 </div>
-                <div id="password-error" class="text-sm text-red-600 mb-4 hidden"></div>
+                <div id="password-error" class="text-sm text-red-600 p-2 bg-red-50 rounded-lg hidden mb-4"></div>
                 <div class="flex justify-end space-x-3">
-                    <button type="button" id="cancel-password-change" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition duration-150">Cancel</button>
-                    <button type="submit" id="submit-password-change" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition duration-150">
-                        Update Password
-                    </button>
+                    <button type="button" id="cancel-password-change" class="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition duration-150">Cancel</button>
+                    <button type="submit" id="submit-password-change" class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">Update Password</button>
                 </div>
             </form>
         </div>
     </div>
-    
+
     <script type="module">
         // Ensure Lucide icons are rendered after the script loads
         lucide.createIcons();
@@ -295,10 +290,10 @@
         // --- Firebase Logic Setup ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // Import additional Auth functions for profile management
-        import { getAuth, signInAnonymously, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         // Import get for single RTDB read
-        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
-        import { getDatabase, ref, onValue, query, orderByChild, equalTo, get } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; 
+        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js"; 
         
         const LOGIN_PAGE_URL = "adminLogin.html"; // Define your login page URL here
         
@@ -315,8 +310,6 @@
         
         let app, auth, db, rtdb; 
         
-        // setLogLevel('debug'); // Uncomment for debugging
-
         try {
             // Initialize Firebase
             app = initializeApp(firebaseConfig);
@@ -334,7 +327,8 @@
 
         const attendanceListEl = document.getElementById('attendance-list');
         const sectionFilterEl = document.getElementById('section-filter');
-        const gradeFilterEl = document.getElementById('grade-filter');
+        // UPDATED ELEMENT: Renamed from grade-filter to year-filter
+        const yearFilterEl = document.getElementById('year-filter');
         const dateFilterEl = document.getElementById('date-filter');
         const applyFiltersButton = document.getElementById('apply-filters');
         
@@ -367,6 +361,7 @@
 
         // Renders a single row in the table
         const renderRow = (scan) => {
+            // Use scan.studentId to look up cached student data
             const student = studentsData[scan.studentId] || { fullName: 'Unknown Student', section: 'N/A' };
             const timeIn = scan.timeIn ? formatTime(scan.timeIn) : 'N/A';
             const timeOut = scan.timeOut ? formatTime(scan.timeOut) : 'N/A';
@@ -409,7 +404,7 @@
         };
 
         // Main function to fetch and display the live attendance
-        const fetchLiveAttendance = (sectionFilter, gradeFilter, dateFilter) => {
+        const fetchLiveAttendance = (sectionFilter, yearFilter, dateFilter) => {
             if (!rtdb) return;
 
             // Stop previous listener if it exists
@@ -424,9 +419,6 @@
             // Attendance is structured as: attendance/YYYY-MM-DD/{studentId}/{scanKey}
             const attendanceRef = ref(rtdb, `attendance/${attendanceDate}`);
             
-            // Build the query (Note: we rely on client-side filtering)
-            let attendanceQuery = attendanceRef;
-            
             // Clear the existing list and show loading
             attendanceListEl.innerHTML = `
                 <tr>
@@ -440,7 +432,7 @@
 
 
             // Listen for changes
-            lastScanSubscription = onValue(attendanceQuery, (snapshot) => {
+            lastScanSubscription = onValue(attendanceRef, (snapshot) => {
                 const allScans = snapshot.val() || {};
                 
                 // Convert object (studentId: {scanKey: scanData}) to flat array of scanData objects
@@ -455,10 +447,11 @@
                     // Skip if student data is not found (might be deleted or not loaded yet)
                     if (!student) return false;
 
-                    const matchesSection = !sectionFilter || student.section === sectionFilter;
-                    const matchesGrade = !gradeFilter || student.grade.toString() === gradeFilter; // Ensure comparison is correct type
+                    const matchesSection = !sectionFilter || student.section.trim() === sectionFilter;
+                    // UPDATED LOGIC: Checking against student.year instead of student.grade
+                    const matchesYear = !yearFilter || (student.year && student.year.toString() === yearFilter);
 
-                    return matchesSection && matchesGrade;
+                    return matchesSection && matchesYear;
                 });
 
                 if (filteredScans.length === 0) {
@@ -500,25 +493,29 @@
 
             const studentsRef = ref(rtdb, 'students');
 
-            // Use 'once' instead of 'onValue' to avoid re-running this logic on every student change,
-            // as this is for the filters and name/section lookups.
+            // Use 'get' to fetch all student data once.
             get(studentsRef).then((snapshot) => {
-                const rawStudentsData = snapshot.val() || {};
-                const studentList = Object.values(rawStudentsData);
+                const data = snapshot.val();
+                studentsData = {}; // Reset cache
+                const uniqueSections = new Set();
+                const studentList = []; // Array version to iterate easily
 
-                // 1. Cache student data for fast lookup
-                studentsData = studentList.reduce((acc, student) => {
-                    // Check if studentId exists before assigning
-                    if (student.studentId) {
-                        acc[student.studentId] = student;
-                    }
-                    return acc;
-                }, {});
+                if (data) {
+                    Object.keys(data).forEach((key) => {
+                        const student = { studentId: key, ...data[key] };
+                        studentsData[key] = student; // Cache student by its key (ID)
+                        studentList.push(student);
 
+                        if (student.section) {
+                            uniqueSections.add(student.section.trim());
+                        }
+                    });
+                }
+                
                 // 2. Populate Section Filter
-                const uniqueSections = [...new Set(studentList.map(s => s.section).filter(Boolean))].sort();
+                const sortedSections = [...uniqueSections].sort();
                 sectionFilterEl.innerHTML = '<option value="">Filter by Section</option>'; // Reset
-                uniqueSections.forEach(section => {
+                sortedSections.forEach(section => {
                     const option = document.createElement('option');
                     option.value = section;
                     option.textContent = section;
@@ -527,12 +524,15 @@
 
                 // Once data is loaded, start the live monitor
                 const currentSection = sectionFilterEl.value;
-                const currentGrade = gradeFilterEl.value;
+                // UPDATED: Use yearFilterEl
+                const currentYear = yearFilterEl.value;
                 const currentDate = dateFilterEl.value;
-                fetchLiveAttendance(currentSection, currentGrade, currentDate);
+                fetchLiveAttendance(currentSection, currentYear, currentDate);
 
             }).catch((error) => {
                 console.error("Error loading student/section data:", error);
+                // Fallback to fetching live data without student data (will show 'Unknown Student')
+                fetchLiveAttendance(null, null, null); 
             });
         };
 
@@ -540,21 +540,15 @@
         
         applyFiltersButton.addEventListener('click', () => {
             const section = sectionFilterEl.value;
-            const grade = gradeFilterEl.value;
+            // UPDATED: Use yearFilterEl value
+            const year = yearFilterEl.value;
             const date = dateFilterEl.value;
             // When filters change, we call fetchLiveAttendance which automatically unsubscribes the old listener
             // and sets up a new one for the same date/ref, but with new client-side filters.
-            fetchLiveAttendance(section, grade, date);
+            fetchLiveAttendance(section, year, date);
         });
         
         // Auto-refresh logic: since onValue is used in fetchLiveAttendance, the data is already real-time.
-        // The interval is primarily to re-run client-side filtering/re-render, but it's redundant.
-        // I will keep a simple interval to *visually confirm* the 'live' state by shaking an icon or similar,
-        // but the core RTDB connection is what provides the real-time updates.
-        // For simplicity, I'll remove the interval that re-fetches to avoid listener thrashing,
-        // as the RTDB listener is persistent. The 'refresh-cw' icon and time display is misleading.
-        // I'll update the initial display but remove the interval.
-        
         document.getElementById('refresh-time').textContent = `LIVE`;
         
         // ------------------------------------------------------------------------------------------------
@@ -612,139 +606,141 @@
                 }
                 await signOut(auth);
                 // Clear any local state and redirect to login page
-                window.location.href = LOGIN_PAGE_URL; 
+                window.location.href = LOGIN_PAGE_URL;
             } catch (error) {
-                console.error("Logout Failed:", error);
-                alert("Logout failed. Please try again. " + error.message);
+                console.error("Logout error:", error);
             }
         });
 
-        // ---------- Change Password Modal & Logic ----------
+        // ---------- Change Password Modal and Logic (Existing Code) ----------
         const passwordModal = document.getElementById('password-modal');
         const changePasswordLink = document.getElementById('change-password-link');
-        const cancelPasswordChange = document.getElementById('cancel-password-change');
+        const cancelPasswordChangeButton = document.getElementById('cancel-password-change');
         const changePasswordForm = document.getElementById('change-password-form');
-        const newPasswordInput = document.getElementById('new-password');
-        const confirmPasswordInput = document.getElementById('confirm-password');
-        const passwordError = document.getElementById('password-error');
-        const submitPasswordChange = document.getElementById('submit-password-change');
+        const passwordErrorEl = document.getElementById('password-error');
 
-        // Open Modal
         changePasswordLink.addEventListener('click', (e) => {
             e.preventDefault();
-            if (profileMenu) profileMenu.classList.add('hidden');
-            if (passwordModal) {
-                passwordModal.classList.remove('hidden');
-                passwordModal.classList.add('flex');
-                passwordError.classList.add('hidden');
-                newPasswordInput.value = '';
-                confirmPasswordInput.value = '';
-                lucide.createIcons();
+            profileMenu.classList.add('hidden');
+            passwordErrorEl.classList.add('hidden');
+            passwordModal.style.display = 'flex'; // Show modal
+        });
+
+        cancelPasswordChangeButton.addEventListener('click', () => {
+            passwordModal.style.display = 'none'; // Hide modal
+            changePasswordForm.reset(); // Clear form fields
+        });
+
+        // Close modal when clicking outside
+        passwordModal.addEventListener('click', (e) => {
+            if (e.target === passwordModal) {
+                passwordModal.style.display = 'none';
+                changePasswordForm.reset();
             }
         });
 
-        // Close Modal
-        cancelPasswordChange.addEventListener('click', () => {
-            if (passwordModal) {
-                passwordModal.classList.add('hidden');
-                passwordModal.classList.remove('flex');
-            }
-        });
-        
-        // Modal Submit
         changePasswordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const newPassword = newPasswordInput.value;
-            const confirmPassword = confirmPasswordInput.value;
-            const user = auth.currentUser;
-            
-            passwordError.classList.add('hidden');
-            submitPasswordChange.disabled = true;
-            submitPasswordChange.textContent = 'Updating...';
+            passwordErrorEl.classList.add('hidden');
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const submitButton = document.getElementById('submit-password-change');
 
             if (newPassword !== confirmPassword) {
-                passwordError.textContent = 'Passwords do not match.';
-                passwordError.classList.remove('hidden');
-                submitPasswordChange.disabled = false;
-                submitPasswordChange.textContent = 'Update Password';
+                passwordErrorEl.textContent = 'New passwords do not match!';
+                passwordErrorEl.classList.remove('hidden');
                 return;
             }
 
-            if (!user) {
-                passwordError.textContent = 'User not authenticated. Please log out and log in again.';
-                passwordError.classList.remove('hidden');
-                submitPasswordChange.disabled = false;
-                submitPasswordChange.textContent = 'Update Password';
+            if (newPassword.length < 6) {
+                passwordErrorEl.textContent = 'Password must be at least 6 characters long.';
+                passwordErrorEl.classList.remove('hidden');
                 return;
             }
 
-            try {
-                await updatePassword(user, newPassword);
-                
-                alert('Password updated successfully. For security, you will now be logged out.');
-                // Successful update -> Logout
-                passwordModal.classList.add('hidden');
-                await signOut(auth);
-                window.location.href = LOGIN_PAGE_URL; 
-                
-            } catch (error) {
-                console.error("Password update failed:", error);
-                let message = 'Failed to update password. Please re-authenticate by logging out and logging in again before trying to change the password.';
-                
-                // Specific Firebase error codes
-                if (error.code === 'auth/requires-recent-login') {
-                    message = 'For security, you must recently re-login to change your password. Please log out and log in again.';
-                } else if (error.code === 'auth/weak-password') {
-                    message = 'Password is too weak. It must be at least 6 characters.';
-                } else {
-                    message = `Update failed: ${error.message}`;
+            const user = auth.currentUser;
+            if (user) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Updating...';
+
+                try {
+                    await updatePassword(user, newPassword);
+                    alert('Password updated successfully! Please log in with your new password.');
+                    await signOut(auth); // Force re-login after password change
+                    window.location.href = LOGIN_PAGE_URL;
+                } catch (error) {
+                    console.error("Error updating password:", error);
+                    let errorMessage = 'Failed to update password. Please try again.';
+                    if (error.code === 'auth/requires-recent-login') {
+                        errorMessage = 'This action requires a recent login. Please log out and log back in, then try again quickly.';
+                    }
+                    passwordErrorEl.textContent = errorMessage;
+                    passwordErrorEl.classList.remove('hidden');
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Update Password';
                 }
-                
-                passwordError.textContent = message;
-                passwordError.classList.remove('hidden');
-                submitPasswordChange.disabled = false;
-                submitPasswordChange.textContent = 'Update Password';
+            } else {
+                passwordErrorEl.textContent = 'User not authenticated. Please log in.';
+                passwordErrorEl.classList.remove('hidden');
             }
         });
 
 
         // ------------------------------------------------------------------------------------------------
-        // Auth State Management
+        // AUTH STATE MANAGEMENT AND INITIALIZATION
         // ------------------------------------------------------------------------------------------------
-
+        
         onAuthStateChanged(auth, (user) => {
             const authStatusEl = document.getElementById('auth-status');
             const userIdEl = document.getElementById('user-id');
             
             if (user) {
                 // User is signed in.
-                console.log("Admin is authenticated. UID:", user.uid);
                 authStatusEl.textContent = 'Authenticated';
-                authStatusEl.classList.remove('text-yellow-500');
+                authStatusEl.classList.remove('text-yellow-500', 'text-red-500');
                 authStatusEl.classList.add('text-green-500');
                 userIdEl.textContent = user.uid;
+                
+                // Set default date to today for the filter
+                dateFilterEl.value = new Date().toISOString().substring(0, 10);
 
-                // 1. Fetch Admin Profile
+                // Load student data and start the monitor
+                loadStudentAndSectionData();
+                
+                // Fetch and display admin profile
                 fetchAdminProfile(user.uid);
                 
-                // 2. Load supporting data and start the live monitor
-                loadStudentAndSectionData();
-
-
             } else {
                 // User is signed out. Redirect to login page.
-                console.log("No admin signed in. Redirecting to login.");
                 authStatusEl.textContent = 'Unauthenticated';
-                authStatusEl.classList.remove('text-yellow-500');
+                authStatusEl.classList.remove('text-yellow-500', 'text-green-500');
                 authStatusEl.classList.add('text-red-500');
                 userIdEl.textContent = 'N/A';
                 
-                // Check if we are already on the login page to avoid infinite redirect
-                if (!window.location.pathname.endsWith(LOGIN_PAGE_URL)) {
-                    window.location.href = LOGIN_PAGE_URL;
+                // Clear the main list and stop listener
+                attendanceListEl.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-gray-500 italic">
+                            <i data-lucide="lock" class="w-5 h-5 inline-block mr-2"></i>
+                            Please log in to view the live monitor.
+                        </td>
+                    </tr>
+                `;
+                lucide.createIcons();
+                if (lastScanSubscription && typeof lastScanSubscription === 'function') {
+                    lastScanSubscription();
                 }
+
+                // Redirect after a short delay to allow UI update
+                setTimeout(() => {
+                    window.location.href = LOGIN_PAGE_URL;
+                }, 1000); // 1 second delay
+
             }
         });
+
     </script>
+
 </body>
 </html>
