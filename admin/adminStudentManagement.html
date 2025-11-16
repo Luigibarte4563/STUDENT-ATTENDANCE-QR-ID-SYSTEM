@@ -1,333 +1,564 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Management | QR Attendance System</title>
+    <title>Student Management | QR Attend System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
     <style>
-        /* Custom font and base styling */
+        /* 1. Base Setup & Font */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        :root { font-family: 'Inter', sans-serif; }
-        
-        /* Custom styles for better aesthetics */
+
+        :root {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .lucide-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .stat-icon {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
+        /* 2. FIX: Standard CSS Media Query for Sidebar Responsiveness */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 50;
+            width: 16rem;
+            /* Tailwind w-64 */
+            transform: translateX(0);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* Mobile view: hidden by default (lg: is 1024px, so max-width: 1023px) */
+        @media (max-width: 1023px) {
+            #sidebar {
+                transform: translateX(-100%);
+            }
+        }
+
+        #backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            display: none;
+        }
+
+        /* State for when the sidebar is open on mobile */
+        .sidebar-open #sidebar {
+            transform: translateX(0);
+        }
+
+        .sidebar-open #backdrop {
+            display: block;
+        }
+
+        /* Custom styles for navigation links */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: #d1d5db;
+            /* gray-300 */
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+        }
+
+        .nav-item:hover {
+            background-color: #374151;
+            /* gray-700 */
+            color: #ffffff;
+        }
+
+        /* Ensure the active link is always prominent (Matched to current page) */
+        .nav-item.active {
+            background-color: #1f2937;
+            /* A shade darker than hover, gray-800 */
+            color: #60a5fa;
+            /* blue-400 */
+            font-weight: 600;
+        }
+
+        /* Dashboard-style shadows for table/content card */
+        .content-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Retain stat-card styling from Student Management for content aesthetics */
         .stat-card {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
             transition: transform 0.2s;
         }
+
         .stat-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
         }
-        .lucide-icon { width: 1.25rem; height: 1.25rem; } 
-        .stat-icon { width: 1.5rem; height: 1.5rem; } 
 
-        /* Base Nav Item Styling */
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            color: #d1d5db; /* gray-300 */
-            transition: background-color 0.15s, color 0.15s;
-        }
-        .nav-item:hover {
-            background-color: #1f2937; /* gray-800 */
-            color: white;
-        }
-        
-        /* --- RESPONSIVENESS FIXES (Mobile Overlay) --- */
-        
-        /* 1. Mobile Sidebar Positioning */
-        #sidebar {
-            --sidebar-width: 16rem; /* 256px for w-64 */
-            transition: transform 0.3s ease-in-out;
-            transform: translateX(calc(-1 * var(--sidebar-width)));
-            position: fixed; /* Always fixed for overlay */
-            top: 0; 
-            bottom: 0;
-            left: 0;
-            z-index: 50; /* Higher than button and backdrop */
-        }
-        
-        /* 2. Backdrop styling */
-        #backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 40; /* Below sidebar */
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s, visibility 0.3s;
-        }
-        
-        /* 3. Main content padding adjustment to account for the new fixed mobile header (approx 4rem height) */
-        #main-content {
-            padding-top: 6rem; /* Increased space for the new fixed mobile header */
-        }
+        /* Print-specific styles for QR Codes */
+        @media print {
 
-        /* 4. State when menu is open on small screens */
-        .sidebar-open #sidebar {
-            transform: translateX(0);
-        }
-        .sidebar-open #backdrop {
-            opacity: 1;
-            visibility: visible;
-        }
-        .sidebar-open body {
-            overflow: hidden; /* Prevent body scroll while sidebar is open */
-        }
-
-        /* 5. Desktop/Large Screen Reset (Standard side-by-side layout) */
-        @media (min-width: 1024px) { /* lg breakpoint */
-            #sidebar {
-                position: relative; /* Take up flow space */
-                transform: translateX(0); /* Always visible */
-                flex-shrink: 0;
+            /* Hide everything except the print area */
+            body>*:not(#qr-print-area) {
+                display: none;
             }
-            #main-content {
-                padding-top: 1.5rem; /* Reset desktop padding */
+
+            #qr-print-area {
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                font-family: 'Inter', sans-serif;
             }
-            #backdrop {
-                visibility: hidden !important;
-                opacity: 0 !important;
+
+            .qr-print-page {
+                page-break-after: always;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                padding: 20px;
+                justify-content: flex-start;
+                align-content: flex-start;
+            }
+
+            .qr-card-print {
+                border: 1px solid #ccc;
+                padding: 10px;
+                width: 150px;
+                /* Fixed size for a printout card */
+                text-align: center;
+                box-shadow: none;
+                margin: 5px;
+                box-sizing: border-box;
+            }
+
+            .qr-card-print img {
+                display: block;
+                margin: 0 auto;
+                width: 120px;
+                height: 120px;
+            }
+
+            .qr-card-print p {
+                margin: 2px 0;
+                font-size: 10px;
+            }
+
+            .qr-card-print .student-id {
+                font-weight: bold;
+                font-size: 11px;
             }
         }
-        
     </style>
 </head>
-<body class="bg-gray-50 flex min-h-screen"> 
+
+<body class="bg-gray-50 min-h-screen">
     <div id="backdrop" class="lg:hidden"></div>
 
-    <div class="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 lg:hidden p-4">
-        <div class="flex items-center justify-between">
-            <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50">
-                <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
-            </button>
-            
-            <header class="flex-1 text-center -ml-1">
-                <h1 class="text-xl font-extrabold text-gray-800 truncate">Student Management</h1>
-                <p class="text-xs text-gray-500">Manage student records here</p>
-            </header>
-            
-            <div class="w-8 h-1"></div> 
-        </div>
-    </div>
-    
     <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
         <div class="p-6 flex items-center justify-between border-b border-gray-800">
-            <div class="flex items-center">
-                <i data-lucide="qr-code" class="text-blue-400 mr-2 stat-icon"></i>
-                <span class="text-xl font-bold text-blue-400">QR Attend System</span>
+            <div class="flex items-start">
+                <i data-lucide="qr-code" class="text-blue-400 mr-2 text-3xl mt-4"></i>
+
+                <div class="flex flex-col text-xl font-bold text-blue-400 leading-tight">
+                    <span>QR Attend</span>
+                    <span>System</span>
+                </div>
             </div>
-            <button id="sidebar-close-button" class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
+            <button id="sidebar-close-button"
+                class="p-1 lg:hidden text-gray-400 hover:text-white transition duration-150">
                 <i data-lucide="x" class="lucide-icon"></i>
             </button>
         </div>
 
         <nav class="flex-1 overflow-y-auto p-4 space-y-2">
-            <a href="adminDashboard.html" class="nav-item"><i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>Dashboard Home</a>
-            <a href="adminLiveAttendanceMonitor.html" class="nav-item"><i data-lucide="eye" class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
-            <a href="adminStudentManagement.html" class="nav-item bg-gray-800 text-blue-400 font-semibold hover:bg-gray-700"><i data-lucide="users" class="lucide-icon mr-3"></i>Student Management</a>
-            <a href="adminStudentAccountManagement.html" class="nav-item active"><i data-lucide="user-cog" class="lucide-icon mr-3"></i>Student Account Management</a>
-            <a href="adminTeacherManagement.html" class="nav-item"><i data-lucide="graduation-cap" class="lucide-icon mr-3"></i>Teacher Management</a>
-            <a href="adminAttendanceRecords.html" class="nav-item"><i data-lucide="calendar-check" class="lucide-icon mr-3"></i>Attendance Records</a>
-            <a href="adminReportsAndAnalytics.html" class="nav-item"><i data-lucide="bar-chart-3" class="lucide-icon mr-3"></i>Reports & Analytics</a>
-            <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line" class="lucide-icon mr-3"></i>QR Code Manager</a>
-            <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings" class="lucide-icon mr-3"></i>System Settings</a>
+            <a href="adminDashboard.html" class="nav-item">
+                <i data-lucide="layout-dashboard" class="lucide-icon mr-3"></i>
+                Dashboard Home
+            </a>
+            <a href="adminLiveAttendanceMonitor.html" class="nav-item"><i data-lucide="eye"
+                    class="lucide-icon mr-3"></i>Live Attendance Monitor</a>
+            <a href="adminStudentManagement.html" class="nav-item active"><i data-lucide="users"
+                    class="lucide-icon mr-3"></i>Student Management</a>
+            <a href="adminStudentAccountManagement.html" class="nav-item"><i data-lucide="user-cog"
+                    class="lucide-icon mr-3"></i>Student Account Management</a>
+            <a href="adminTeacherManagement.html" class="nav-item"><i data-lucide="graduation-cap"
+                    class="lucide-icon mr-3"></i>Teacher Management</a>
+            <a href="adminAttendanceRecords.html" class="nav-item"><i data-lucide="calendar-check"
+                    class="lucide-icon mr-3"></i>Attendance Records</a>
+            <a href="adminReportsAndAnalytics.html" class="nav-item"><i data-lucide="bar-chart-3"
+                    class="lucide-icon mr-3"></i>Reports & Analytics</a>
+            <a href="adminQRCodeManager.html" class="nav-item"><i data-lucide="scan-line"
+                    class="lucide-icon mr-3"></i>QR Code Manager</a>
+            <a href="adminSystemSetting.html" class="nav-item"><i data-lucide="settings"
+                    class="lucide-icon mr-3"></i>System Settings</a>
         </nav>
-        
+
         <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
             <p>Auth Status: <span id="auth-status" class="text-yellow-500">Initializing...</span></p>
             <p>User ID: <span id="user-id" class="break-all">N/A</span></p>
         </div>
-
     </aside>
 
-    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-20"> 
-        
-        <header class="hidden lg:block mb-6 pb-4 border-b border-gray-200 lg:text-left">
-            <h1 class="text-3xl font-extrabold text-gray-800">Student Management</h1>
-            <p class="text-gray-500">Admin can fully manage student records here:</p>
-            
-        </header>
-        
-        <div class="bg-white p-6 rounded-xl shadow-xl mb-8">
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <h2 class="text-xl font-bold text-gray-800">Student Roster (<span id="student-count">0</span>)</h2>
-                
-                <div class="flex flex-wrap gap-3">
-                    <button onclick="showAddEditModal()" class="action-btn bg-blue-600 hover:bg-blue-700">
-                        <i data-lucide="user-plus" class="lucide-icon mr-2"></i>
-                        Add New Student
+    <div id="main-container" class="lg:pl-64 flex flex-col min-h-screen">
+
+        <div id="top-header" class="bg-white border-b border-gray-200 sticky top-0 z-30">
+            <div class="flex items-center justify-between p-4 lg:pr-6">
+
+                <div class="flex items-center lg:hidden">
+                    <button id="menu-button" class="p-2 bg-blue-600 text-white rounded-lg shadow-lg z-50 mr-3">
+                        <i data-lucide="menu" id="menu-icon" class="lucide-icon"></i>
                     </button>
-                    <button onclick="document.getElementById('csv-upload-modal').classList.remove('hidden')" class="action-btn bg-green-600 hover:bg-green-700">
-                        <i data-lucide="upload" class="lucide-icon mr-2"></i>
-                        Upload Bulk CSV
+                    <div class="flex flex-col">
+                        <h1 class="text-xl font-extrabold text-gray-800 truncate">Student Mgmt</h1>
+                        <p class="text-xs text-gray-500">Manage student records here</p>
+                    </div>
+                </div>
+
+                <header class="hidden lg:block">
+                    <h1 class="text-2xl font-extrabold text-gray-800">Student Management <i data-lucide="users"
+                            class="inline-block text-blue-600 w-6 h-6 ml-2"></i></h1>
+                    <p class="text-sm text-gray-500">Admin can fully manage student records here:</p>
+                </header>
+
+                <div id="profile-dropdown-container" class="relative">
+                    <button id="profile-button"
+                        class="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 transition duration-150 focus:outline-none">
+                        <div
+                            class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                            <i data-lucide="user" class="w-5 h-5"></i>
+                        </div>
+                        <div class="hidden lg:flex flex-col items-start">
+                            <span id="profile-name" class="text-sm font-semibold text-gray-800">Admin Name</span>
+                            <span id="profile-email" class="text-xs text-gray-500">admin@gmail.com</span>
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
                     </button>
-                    <button onclick="printBatchQRCodes()" class="action-btn bg-gray-500 hover:bg-gray-600">
-                        <i data-lucide="printer" class="lucide-icon mr-2"></i>
-                        Print All QR Codes
-                    </button>
+
+                    <div id="profile-menu"
+                        class="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-2xl origin-top-right hidden z-40">
+                        <div class="p-3 border-b border-gray-100 lg:hidden">
+                            <p id="menu-name-mobile" class="text-sm font-semibold text-gray-800">Admin Name</p>
+                            <p id="menu-email-mobile" class="text-xs text-gray-500">admin@gmail.com</p>
+                        </div>
+                        <a href="#" id="change-password-link"
+                            onclick="document.getElementById('change-password-modal').classList.remove('hidden');"
+                            class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition duration-100 rounded-t-xl">
+                            <i data-lucide="key-round" class="w-4 h-4 mr-3 text-purple-500"></i> Change Password
+                        </a>
+                        <button id="logout-button"
+                            class="w-full text-left flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition duration-100 rounded-b-xl">
+                            <i data-lucide="log-out" class="w-4 h-4 mr-3 text-red-500"></i> Log Out
+                        </button>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="flex flex-wrap gap-4 mb-6">
-                <input type="text" id="search-input" oninput="filterStudents()" placeholder="Search by ID, First Name, or Last Name..." 
-                       class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                
-                <select id="section-filter" onchange="filterStudents()"
-                        class="p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">All Sections</option>
-                    </select>
-            </div>
+        <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-8 lg:p-8">
 
-            <div class="overflow-x-auto rounded-lg shadow-inner border border-gray-200">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Student ID</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Name</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">Section</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200" id="students-table-body">
-                        <tr><td colspan="4" class="text-center p-6 text-gray-500">Loading student data...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            <section class="bg-white p-4 sm:p-6 rounded-xl content-card shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <h2 class="text-xl font-bold text-gray-800">Student Roster (<span id="student-count">0</span>)
+                    </h2>
 
-            <div id="empty-state" class="hidden text-center p-12 bg-gray-50 rounded-lg mt-4 border border-dashed">
-                <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-3 text-gray-400"></i>
-                <p class="text-gray-600 font-semibold">No students found.</p>
-                <p class="text-sm text-gray-500">Try adjusting your search filters or add a new student.</p>
-            </div>
-            
-        </section>
-        
-        <div class="h-20"></div>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="showAddEditModal()"
+                            class="action-btn px-4 py-2 text-sm text-white rounded-lg shadow-md bg-blue-600 hover:bg-blue-700 transition duration-150 flex items-center">
+                            <i data-lucide="user-plus" class="lucide-icon mr-2"></i>
+                            Add New Student
+                        </button>
+                        <button onclick="document.getElementById('csv-upload-modal').classList.remove('hidden')"
+                            class="action-btn px-4 py-2 text-sm text-white rounded-lg shadow-md bg-green-600 hover:bg-green-700 transition duration-150 flex items-center">
+                            <i data-lucide="upload" class="lucide-icon mr-2"></i>
+                            Upload Bulk CSV
+                        </button>
+                        <button onclick="printBatchQRCodes()"
+                            class="action-btn px-4 py-2 text-sm text-white rounded-lg shadow-md bg-indigo-600 hover:bg-indigo-700 transition duration-150 flex items-center">
+                            <i data-lucide="printer" class="lucide-icon mr-2"></i>
+                            Print All QR Codes
+                        </button>
+                    </div>
+                </div>
 
-    </div>
-    
-    <div id="add-edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Add New Student</h3>
-                <div class="mt-4 px-7 py-3">
-                    <form id="student-form">
-                        <input type="hidden" id="doc-id" value="">
-                        <div class="mb-4">
-                            <label for="studentId" class="block text-sm font-medium text-gray-700 text-left">Student ID</label>
-                            <input type="text" id="studentId" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        </div>
-                        <div class="mb-4">
-                            <label for="firstName" class="block text-sm font-medium text-gray-700 text-left">First Name</label>
-                            <input type="text" id="firstName" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        </div>
-                        <div class="mb-4">
-                            <label for="lastName" class="block text-sm font-medium text-gray-700 text-left">Last Name</label>
-                            <input type="text" id="lastName" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        </div>
-                        <div class="mb-4">
-                            <label for="section" class="block text-sm font-medium text-gray-700 text-left">Section/Course</label>
-                            <input type="text" id="section" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        </div>
-                        
-                        <div class="items-center px-4 py-3">
-                            <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                Save Student
-                            </button>
-                            <button type="button" onclick="closeModal('add-edit-modal')" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md hover:bg-gray-300">
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
+                <div class="mb-6 flex flex-wrap gap-4 items-center">
+                    <div class="relative flex-1 min-w-[200px]">
+                        <i data-lucide="search"
+                            class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                        <input type="text" id="search-input" onkeyup="filterStudents()"
+                            placeholder="Search by ID or Name..."
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="relative min-w-[150px]">
+                        <select id="section-filter" onchange="filterStudents()"
+                            class="w-full appearance-none pr-8 py-2 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500 pl-5">
+                            <option value="">All Sections</option>
+                        </select>
+                        <i data-lucide="chevron-down"
+                            class="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col"
+                                    class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Student ID</th>
+                                <th scope="col"
+                                    class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Name</th>
+                                <th scope="col"
+                                    class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Section</th>
+                                <th scope="col"
+                                    class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table-body" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="4" class="text-center p-6 text-gray-500">Loading student data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="empty-state" class="hidden text-center p-10 bg-gray-50 rounded-b-xl">
+                    <i data-lucide="file-x" class="w-12 h-12 mx-auto text-gray-400 mb-3"></i>
+                    <h3 class="mt-2 text-lg font-medium text-gray-900">No Students Found</h3>
+                    <p class="mt-1 text-sm text-gray-500">Get started by adding a new student or checking your filters.
+                    </p>
+                </div>
+            </section>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+                <div class="stat-card bg-white p-6 rounded-xl border border-blue-100 flex items-center">
+                    <div class="p-3 bg-blue-100 rounded-full mr-4">
+                        <i data-lucide="users" class="stat-icon text-blue-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Total Students</p>
+                        <p id="total-students" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+                <div class="stat-card bg-white p-6 rounded-xl border border-purple-100 flex items-center">
+                    <div class="p-3 bg-purple-100 rounded-full mr-4">
+                        <i data-lucide="layout-list" class="stat-icon text-purple-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Unique Sections</p>
+                        <p id="unique-sections" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="qr-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-xl leading-6 font-medium text-gray-900 mb-2">Student QR Code</h3>
-                <p class="text-lg font-semibold" id="qr-student-name">Student Name</p>
-                <p class="text-sm text-gray-500 mb-6" id="qr-student-id">ID: S0000</p>
-
-                <div class="flex justify-center p-4 border border-gray-300 rounded-lg">
-                    <div id="qrcode-container" class="p-2 border border-gray-200">
-                        </div>
-                </div>
-
-                <div class="items-center px-4 py-3 mt-4">
-                    <button onclick="printSingleQRCode()" class="w-full px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <i data-lucide="printer" class="lucide-icon mr-2 inline-block"></i>
-                        Print QR Code
-                    </button>
-                    <button type="button" onclick="closeModal('qr-modal')" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md hover:bg-gray-300">
-                        Close
-                    </button>
-                </div>
+    <div id="add-edit-modal"
+        class="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 hidden transition-opacity duration-300">
+        <div
+            class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white transform transition-transform duration-300">
+            <div class="flex justify-between items-center pb-3">
+                <h3 id="modal-title" class="text-lg font-bold text-gray-900">Add New Student</h3>
+                <button onclick="closeModal('add-edit-modal')" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
-        </div>
-    </div>
+            <form id="student-form" class="space-y-4">
+                <input type="hidden" id="doc-id" value="">
 
-    <div id="csv-upload-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Upload Student Roster (CSV)</h3>
-                <div class="mt-4 px-7 py-3">
-                    <input type="file" id="csv-file-input" accept=".csv" class="mb-4 block w-full text-sm text-gray-500
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-full file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-blue-50 file:text-blue-700
-                        hover:file:bg-blue-100
-                    ">
-                    <p class="text-sm text-gray-500 text-left mb-4">The CSV file must contain columns: `studentId`, `firstName`, `lastName`, and `section`.</p>
-                    
-                    <button onclick="handleCSVUpload()" class="w-full px-4 py-2 bg-green-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-green-700">
-                        Process and Upload
-                    </button>
-                    <button type="button" onclick="closeModal('csv-upload-modal')" class="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md hover:bg-gray-300">
+                <div>
+                    <label for="studentId" class="block text-sm font-medium text-gray-700">Student ID (for QR
+                        Code)</label>
+                    <input type="text" id="studentId" name="studentId" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="firstName" class="block text-sm font-medium text-gray-700">First Name</label>
+                    <input type="text" id="firstName" name="firstName" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="lastName" class="block text-sm font-medium text-gray-700">Last Name</label>
+                    <input type="text" id="lastName" name="lastName" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="section" class="block text-sm font-medium text-gray-700">Section/Grade</label>
+                    <input type="text" id="section" name="section" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="flex justify-end pt-4 border-t">
+                    <button type="button" onclick="closeModal('add-edit-modal')"
+                        class="mr-3 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none">
                         Cancel
                     </button>
+                    <button type="submit"
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Save Student
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="change-password-modal"
+        class="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 hidden transition-opacity duration-300">
+        <div
+            class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white transform transition-transform duration-300">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg font-bold text-gray-900">Change Admin Password</h3>
+                <button onclick="closeModal('change-password-modal')" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="change-password-form" class="space-y-4">
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4 rounded-md">
+                    <p class="text-sm text-yellow-700 font-medium">Note: You must **re-authenticate** with your current
+                        password first to change it.</p>
+                </div>
+                <div>
+                    <label for="current-password" class="block text-sm font-medium text-gray-700">Current
+                        Password</label>
+                    <input type="password" id="current-password" name="current-password" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                <div>
+                    <label for="new-password" class="block text-sm font-medium text-gray-700">New Password</label>
+                    <input type="password" id="new-password" name="new-password" required minlength="6"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                <div>
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm New
+                        Password</label>
+                    <input type="password" id="confirm-password" name="confirm-password" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                </div>
+
+                <div id="password-error-message" class="text-sm text-red-600 hidden font-medium"></div>
+
+                <div class="flex justify-end pt-4 border-t">
+                    <button type="button" onclick="closeModal('change-password-modal')"
+                        class="mr-3 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none">
+                        Cancel
+                    </button>
+                    <button type="submit" id="change-password-submit-btn"
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                        Update Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="qr-modal"
+        class="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 hidden transition-opacity duration-300">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white text-center">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-xl font-bold text-gray-900">Student QR Code</h3>
+                <button onclick="closeModal('qr-modal')" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="border-t border-gray-200 pt-4">
+                <p id="qr-student-name" class="text-lg font-semibold text-gray-800"></p>
+                <p id="qr-student-id" class="text-sm text-gray-500 mb-4"></p>
+
+                <div id="qrcode-container" class="flex justify-center p-4">
+                </div>
+
+                <div class="mt-4 flex justify-center space-x-3">
+                    <button onclick="printSingleQRCode()"
+                        class="action-btn bg-indigo-600 hover:bg-indigo-700 text-sm">
+                        <i data-lucide="printer" class="lucide-icon mr-2"></i> Print QR Code
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="message-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900" id="message-modal-title">Message</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500" id="message-modal-content"></p>
-                </div>
-                <div class="items-center px-4 py-3">
-                    <button type="button" onclick="closeModal('message-modal')" class="w-full px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700">
+    <div id="message-modal"
+        class="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 hidden transition-opacity duration-300">
+        <div class="relative top-20 mx-auto p-6 border w-96 shadow-lg rounded-xl bg-white">
+            <div class="text-center">
+                <i data-lucide="info" class="w-8 h-8 mx-auto text-blue-600"></i>
+                <h3 id="message-modal-title" class="text-lg font-bold text-gray-900 mt-2">Alert</h3>
+                <p id="message-modal-content" class="text-sm text-gray-500 mt-2"></p>
+                <div class="mt-4">
+                    <button onclick="closeModal('message-modal')"
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none">
                         OK
                     </button>
                 </div>
             </div>
         </div>
     </div>
-    
+
+    <div id="csv-upload-modal"
+        class="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 hidden transition-opacity duration-300">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg font-bold text-gray-900">Upload Student Roster (CSV)</h3>
+                <button onclick="closeModal('csv-upload-modal')" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-4 pt-2">
+                <div>
+                    <label for="csv-file-input" class="block text-sm font-medium text-gray-700">Select CSV File</label>
+                    <input type="file" id="csv-file-input" accept=".csv" class="mt-1 block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100
+                    ">
+                    <p class="mt-2 text-xs text-gray-500">
+                        Format: **studentId**, **firstName**, **lastName**, **section** (Header required)
+                    </p>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t">
+                    <button type="button" onclick="closeModal('csv-upload-modal')"
+                        class="mr-3 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="handleCSVUpload()"
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        Upload
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="qr-print-area" style="display: none;"></div>
+
+
     <script type="module">
         // Ensure Lucide icons are rendered after the script loads
         lucide.createIcons();
 
         // Custom Nav Item Styling Class for easy reuse
         document.querySelectorAll('.nav-item').forEach(item => {
-            // Note: The classes are already largely defined in the <style> block,
-            // but these add necessary flexbox and hover effects if not using the custom class in HTML.
             item.classList.add('flex', 'items-center', 'p-3', 'rounded-lg', 'text-gray-300', 'hover:bg-gray-800', 'hover:text-white', 'transition', 'duration-150');
         });
         document.querySelectorAll('.action-btn').forEach(item => {
@@ -342,35 +573,79 @@
         const body = document.body;
 
         function toggleSidebar() {
-            sidebar.classList.toggle('-translate-x-full');
             body.classList.toggle('sidebar-open');
         }
 
         menuButton.addEventListener('click', toggleSidebar);
         backdrop.addEventListener('click', toggleSidebar); // Close sidebar when backdrop is clicked
         document.getElementById('sidebar-close-button').addEventListener('click', toggleSidebar); // Close button in sidebar
-        
+
+        // Toggle Profile Dropdown
+        const profileButton = document.getElementById('profile-button');
+        const profileMenu = document.getElementById('profile-menu');
+
+        if (profileButton && profileMenu) {
+            profileButton.addEventListener('click', () => {
+                profileMenu.classList.toggle('hidden');
+            });
+
+            // Close dropdown if user clicks outside
+            window.addEventListener('click', function (e) {
+                if (!profileButton.contains(e.target) && !profileMenu.contains(e.target) && !document.getElementById('change-password-modal').contains(e.target)) {
+                    profileMenu.classList.add('hidden');
+                }
+            });
+        }
+
+        // Modal helpers
+        window.closeModal = function (modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            // Clear all fields and errors on close for Add/Edit Modal
+            if (modalId === 'add-edit-modal') {
+                document.getElementById('student-form').reset();
+                document.getElementById('doc-id').value = '';
+                document.getElementById('modal-title').textContent = 'Add New Student';
+            }
+            // Clear current-password field on close for security
+            if (modalId === 'change-password-modal') {
+                document.getElementById('change-password-form').reset();
+                document.getElementById('password-error-message').classList.add('hidden');
+                document.getElementById('password-error-message').textContent = '';
+            }
+        }
+
+        window.showMessageModal = function (title, content) {
+            document.getElementById('message-modal-title').textContent = title;
+            document.getElementById('message-modal-content').textContent = content;
+            document.getElementById('message-modal').classList.remove('hidden');
+        }
+
+
         // ------------------------------------------------------------------------------------------------
         // REQUIRED FIREBASE IMPORTS
         // ------------------------------------------------------------------------------------------------
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        
-        // **REALTIME DATABASE IMPORTS**
-        import { 
-            getDatabase, 
-            ref, 
-            onValue, 
-            set, 
-            push, 
-            remove, 
-            query, 
-            orderByChild, 
-            equalTo 
+        import {
+            getAuth,
+            onAuthStateChanged,
+            signOut,
+            EmailAuthProvider,
+            reauthenticateWithCredential,
+            updatePassword,
+            signInWithEmailAndPassword
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import {
+            getDatabase,
+            ref,
+            onValue,
+            set,
+            push,
+            remove,
+            get,
+            update
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
-        
+
         // Global Variables
-        const appId = 'studentattendanceqridsys'; // Directly use the project ID for simpler reference
         const firebaseConfig = {
             apiKey: "AIzaSyDq64gpsq2NzC7EA1V00WZ-yYGzHSKYMLA",
             authDomain: "studentattendanceqridsys.firebaseapp.com",
@@ -382,374 +657,522 @@
             measurementId: "G-XFK13STCJK"
         };
 
-        let app, auth, rtdb, userId = null; // **db** is now **rtdb**
-        let isAuthReady = false;
+        let app, auth, rtdb, userId = null;
         let studentsData = []; // Global array to hold current student data
+        let currentQR; // To hold the QRCode object for single print
+        let currentAdminEmail = "";
 
-        // --- Utility Functions ---
+        // --- UI Element References ---
+        const profileNameEl = document.getElementById('profile-name');
+        const profileEmailEl = document.getElementById('profile-email');
+        const menuNameMobileEl = document.getElementById('menu-name-mobile');
+        const menuEmailMobileEl = document.getElementById('menu-email-mobile');
+        const authStatusEl = document.getElementById('auth-status');
+        const userIdEl = document.getElementById('user-id');
+        const studentsTableBody = document.getElementById('students-table-body');
+        const studentCountEl = document.getElementById('student-count');
+        const totalStudentsEl = document.getElementById('total-students');
+        const uniqueSectionsEl = document.getElementById('unique-sections');
+        const sectionFilterEl = document.getElementById('section-filter');
+        const searchInput = document.getElementById('search-input');
+        const emptyStateEl = document.getElementById('empty-state');
+        const studentForm = document.getElementById('student-form');
+        const changePasswordForm = document.getElementById('change-password-form');
+        const passwordErrorEl = document.getElementById('password-error-message');
+        const qrCodeContainer = document.getElementById('qrcode-container');
+        const qrStudentNameEl = document.getElementById('qr-student-name');
+        const qrStudentIdEl = document.getElementById('qr-student-id');
+        const qrPrintArea = document.getElementById('qr-print-area');
 
-        /** Shows a custom message modal (replacing alert()) */
-        function showMessage(title, content) {
-            document.getElementById('message-modal-title').textContent = title;
-            document.getElementById('message-modal-content').textContent = content;
-            document.getElementById('message-modal').classList.remove('hidden');
+        // ------------------------------------------------------------------------------------------------
+        // 1. FIREBASE INITIALIZATION & AUTHENTICATION
+        // ------------------------------------------------------------------------------------------------
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            rtdb = getDatabase(app);
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showMessageModal("Error", "Failed to initialize Firebase. Check console for details.");
         }
 
-        /** Hides a modal by ID */
-        window.closeModal = function(modalId) {
-            document.getElementById(modalId).classList.add('hidden');
-            // Clear forms on close
-            if (modalId === 'add-edit-modal') {
-                document.getElementById('student-form').reset();
-                document.getElementById('doc-id').value = '';
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                userId = user.uid;
+                currentAdminEmail = user.email;
+                authStatusEl.textContent = 'Admin Signed In';
+                authStatusEl.classList.remove('text-yellow-500');
+                authStatusEl.classList.add('text-green-500');
+                userIdEl.textContent = userId;
+                profileEmailEl.textContent = user.email;
+                menuEmailMobileEl.textContent = user.email;
+
+                // Simple Name parsing (can be adjusted if display name is used)
+                const adminName = user.email.split('@')[0];
+                profileNameEl.textContent = adminName.charAt(0).toUpperCase() + adminName.slice(1);
+                menuNameMobileEl.textContent = adminName.charAt(0).toUpperCase() + adminName.slice(1);
+
+                // Start loading data after successful login
+                loadStudentsData();
+            } else {
+                // User is signed out
+                userId = null;
+                console.log("No admin signed in. Redirecting to login.");
+                window.location.href = "adminLogin.html";
             }
-        }
+        });
 
-        /**
-        * Initializes Firebase and authenticates the user.
-        */
-        async function initializeFirebase() {
+        document.getElementById('logout-button').addEventListener('click', async () => {
             try {
-                app = initializeApp(firebaseConfig, appId);
-                auth = getAuth(app);
-                rtdb = getDatabase(app); // **Initialize Realtime Database**
-
-                // Handle authentication state change
-                onAuthStateChanged(auth, (user) => {
-                    const statusEl = document.getElementById('auth-status');
-                    const userIdEl = document.getElementById('user-id');
-                    
-                    if (user) {
-                        statusEl.textContent = "Authenticated";
-                        statusEl.classList.remove('text-yellow-500', 'text-red-500');
-                        statusEl.classList.add('text-green-500');
-                        userId = user.uid;
-                        userIdEl.textContent = userId;
-                    } else {
-                        statusEl.textContent = "Anonymous";
-                        statusEl.classList.remove('text-yellow-500', 'text-green-500');
-                        statusEl.classList.add('text-red-500');
-                        userId = null;
-                        userIdEl.textContent = 'Unauthenticated/Guest'; 
-                    }
-                    isAuthReady = true;
-                    // Once authenticated, start listening for data
-                    if (userId) {
-                        loadStudents();
-                    } else {
-                        // If unauthenticated, sign in anonymously (assuming public/guest access based on your rules)
-                        signInAnonymously(auth);
-                    }
-                });
-                
-                // Initial sign-in attempt if not already signed in
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                }
-                
+                await signOut(auth);
+                // Redirect will happen inside onAuthStateChanged
             } catch (error) {
-                console.error("Firebase initialization or sign-in failed:", error);
-                document.getElementById('auth-status').textContent = "ERROR";
-                document.getElementById('auth-status').classList.remove('text-yellow-500');
-                document.getElementById('auth-status').classList.add('text-red-500');
+                console.error("Logout error:", error);
+                showMessageModal("Error", "Logout failed. Please try again.");
             }
-        }
+        });
 
-        // --- Realtime Database Management ---
+        // ------------------------------------------------------------------------------------------------
+        // 2. ADMIN PASSWORD CHANGE
+        // ------------------------------------------------------------------------------------------------
+        changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
 
-        /** Gets the reference to the students collection in RTDB */
-        function getStudentsRef() {
-            // RTDB path: /students/{student_id}
-            return ref(rtdb, 'students');
-        }
-        
-        // Function to load and listen for real-time student updates
-        function loadStudents() {
-            if (!isAuthReady || !rtdb) return;
+            passwordErrorEl.classList.add('hidden');
 
-            const studentsRef = getStudentsRef();
+            if (newPassword !== confirmPassword) {
+                passwordErrorEl.textContent = 'New passwords do not match.';
+                passwordErrorEl.classList.remove('hidden');
+                return;
+            }
 
-            // onValue sets up a real-time listener for the entire 'students' path
+            if (newPassword.length < 6) {
+                passwordErrorEl.textContent = 'New password must be at least 6 characters.';
+                passwordErrorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const user = auth.currentUser;
+                const credential = EmailAuthProvider.credential(user.email, currentPassword);
+
+                // 1. Re-authenticate the user
+                await reauthenticateWithCredential(user, credential);
+
+                // 2. Update the password
+                await updatePassword(user, newPassword);
+
+                closeModal('change-password-modal');
+                showMessageModal("Success", "Password updated successfully. You might need to sign in again soon.");
+                changePasswordForm.reset();
+
+            } catch (error) {
+                console.error("Password change error:", error.message);
+                let message = "An unknown error occurred.";
+                if (error.code === 'auth/wrong-password' || error.code === 'auth/user-mismatch') {
+                    message = "Invalid current password.";
+                } else if (error.code === 'auth/requires-recent-login') {
+                    message = "Please sign out and sign back in immediately, then try again.";
+                } else {
+                    message = error.message.replace('Firebase: ', '');
+                }
+                passwordErrorEl.textContent = message;
+                passwordErrorEl.classList.remove('hidden');
+            }
+        });
+
+
+        // ------------------------------------------------------------------------------------------------
+        // 3. STUDENT MANAGEMENT (CRUD & DATA DISPLAY)
+        // ------------------------------------------------------------------------------------------------
+        function loadStudentsData() {
+            if (!userId) return;
+            const studentsRef = ref(rtdb, `students`);
+
             onValue(studentsRef, (snapshot) => {
-                studentsData = [];
-                const sections = new Set();
-                
-                // The snapshot value is an object where keys are the unique student IDs (the push() keys)
                 const data = snapshot.val();
+                studentsData = [];
+                const sectionsSet = new Set();
+                let sectionOptionsHtml = '<option value="">All Sections</option>';
+
                 if (data) {
-                    // Iterate over the object keys (student IDs)
-                    Object.keys(data).forEach((key) => {
-                        const student = { id: key, ...data[key] };
-                        studentsData.push(student);
-                        if (student.section) {
-                             sections.add(student.section.trim());
-                        }
+                    Object.keys(data).forEach(docId => {
+                        studentsData.push({ docId, ...data[docId] });
+                        sectionsSet.add(data[docId].section);
                     });
                 }
                 
-                renderStudents(studentsData);
-                updateSectionFilter(sections);
-                // Placeholder: Update total student count for dashboard widget
-                document.getElementById('total-students').textContent = studentsData.length; 
+                // Sort by last name
+                studentsData.sort((a, b) => (a.lastName > b.lastName) ? 1 : -1);
+
+                // Update Stats
+                studentCountEl.textContent = studentsData.length;
+                totalStudentsEl.textContent = studentsData.length;
+                uniqueSectionsEl.textContent = sectionsSet.size;
+
+                // Populate Section Filter
+                sectionsSet.forEach(section => {
+                    sectionOptionsHtml += `<option value="${section}">${section}</option>`;
+                });
+                sectionFilterEl.innerHTML = sectionOptionsHtml;
+                
+                // Render the table with all students initially
+                filterStudents();
             }, (error) => {
-                console.error("Error loading students from RTDB:", error);
-                showMessage("Database Error", "Failed to load student data in real-time. Check console for details.");
-            });
-        }
-        
-        // --- Rendering and UI Logic ---
-
-        function updateSectionFilter(sections) {
-            const filterEl = document.getElementById('section-filter');
-            const currentSelection = filterEl.value;
-            filterEl.innerHTML = '<option value="">All Sections</option>';
-
-            // Convert Set to Array and sort
-            const sortedSections = Array.from(sections).filter(s => s !== '').sort();
-
-            sortedSections.forEach(section => {
-                if (section) {
-                    const option = document.createElement('option');
-                    option.value = section;
-                    option.textContent = section;
-                    if (section === currentSelection) {
-                        option.selected = true;
-                    }
-                    filterEl.appendChild(option);
-                }
+                console.error("Failed to load students data:", error);
+                studentsTableBody.innerHTML = `<tr><td colspan="4" class="text-center p-6 text-red-500">Error loading data.</td></tr>`;
+                studentCountEl.textContent = '0';
+                totalStudentsEl.textContent = '0';
+                uniqueSectionsEl.textContent = '0';
             });
         }
 
-        window.filterStudents = function() {
-            const searchText = document.getElementById('search-input').value.toLowerCase();
-            const selectedSection = document.getElementById('section-filter').value;
-            
+        // --- Filtering and Rendering ---
+        window.filterStudents = function () {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const selectedSection = sectionFilterEl.value;
+
             const filteredData = studentsData.filter(student => {
-                const matchesSearch = searchText === '' ||
-                    (student.studentId && student.studentId.toLowerCase().includes(searchText)) ||
-                    (student.firstName && student.firstName.toLowerCase().includes(searchText)) ||
-                    (student.lastName && student.lastName.toLowerCase().includes(searchText));
+                const matchesSearch = student.studentId.toLowerCase().includes(searchTerm) ||
+                    student.firstName.toLowerCase().includes(searchTerm) ||
+                    student.lastName.toLowerCase().includes(searchTerm);
 
-                const matchesSection = selectedSection === '' || (student.section && student.section.trim() === selectedSection);
+                const matchesSection = !selectedSection || student.section === selectedSection;
 
                 return matchesSearch && matchesSection;
             });
 
-            renderStudents(filteredData);
+            renderTable(filteredData);
         }
 
-
-        function renderStudents(data) {
-            const tableBody = document.getElementById('students-table-body');
-            const studentCountEl = document.getElementById('student-count');
-            const emptyState = document.getElementById('empty-state');
-            tableBody.innerHTML = '';
-            studentCountEl.textContent = data.length;
-
-            if (data.length === 0) {
-                emptyState.classList.remove('hidden');
-                // Display a row that spans the table if there is no data
+        function renderTable(students) {
+            let html = '';
+            if (students.length === 0) {
+                // If there are students but they don't match the filter, show 'No Students Found'
                 if (studentsData.length > 0) {
-                    tableBody.innerHTML = `<tr><td colspan="4" class="text-center p-6 text-gray-500">No students match your filter.</td></tr>`;
+                    emptyStateEl.classList.remove('hidden');
+                    studentsTableBody.innerHTML = `<tr><td colspan="4" class="text-center p-0"></td></tr>`;
+                } else {
+                    // If no students in the database
+                    emptyStateEl.classList.remove('hidden');
+                    studentsTableBody.innerHTML = `<tr><td colspan="4" class="text-center p-0"></td></tr>`;
                 }
-                return;
             } else {
-                emptyState.classList.add('hidden');
+                emptyStateEl.classList.add('hidden');
+                students.forEach(student => {
+                    html += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student.studentId}</td>
+                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${student.firstName} ${student.lastName}</td>
+                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${student.section}</td>
+                            <td class="px-3 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="showQRCode('${student.docId}')"
+                                    class="text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-full hover:bg-indigo-50 transition duration-150" title="View QR Code">
+                                    <i data-lucide="scan" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="showAddEditModal('${student.docId}')"
+                                    class="text-blue-600 hover:text-blue-900 mr-3 p-1 rounded-full hover:bg-blue-50 transition duration-150" title="Edit Student">
+                                    <i data-lucide="square-pen" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteStudent('${student.docId}', '${student.firstName} ${student.lastName}')"
+                                    class="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition duration-150" title="Delete Student">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
             }
 
-            // Sort by studentId
-            data.sort((a, b) => (a.studentId || '').localeCompare(b.studentId || ''));
-
-            data.forEach((student) => {
-                const row = tableBody.insertRow();
-                row.className = 'hover:bg-gray-100 transition-colors duration-100';
-
-                // Use empty string if name components are missing to prevent 'undefined' in the UI
-                const firstName = student.firstName || '';
-                const lastName = student.lastName || '';
-                const studentId = student.studentId || 'N/A';
-                const section = student.section || 'Unassigned';
-                const name = `${lastName}, ${firstName}`;
-                // Sanitize input for use in string literals in HTML/JS calls (basic escape)
-                const safeName = name.replace(/'/g, "\\'").replace(/"/g, '\\"'); 
-
-                row.innerHTML = `
-                    <td class="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${studentId}</td>
-                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">${name}</td>
-                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">${section}</td>
-                    <td class="px-3 py-3 whitespace-nowrap text-sm font-medium">
-                        <div class="flex flex-wrap gap-2">
-                            <button onclick="viewAttendanceHistory('${student.id}')" title="View History" class="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-100 transition"><i data-lucide="history" class="w-4 h-4"></i></button>
-                            <button onclick="showAddEditModal('${student.id}')" title="Edit" class="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-100 transition"><i data-lucide="pencil" class="w-4 h-4"></i></button>
-                            <button onclick="showQRCodeModal('${studentId}', '${safeName}')" title="Generate QR Code" class="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-green-100 transition"><i data-lucide="qr-code" class="w-4 h-4"></i></button>
-                            <button onclick="deleteStudentHandler('${student.id}', '${safeName}')" title="Delete" class="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-100 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                        </div>
-                    </td>
-                `;
-            });
-
-            lucide.createIcons(); // Re-render icons after adding new rows
+            studentsTableBody.innerHTML = html;
+            // IMPORTANT: Re-render Lucide icons after dynamically adding content
+            lucide.createIcons();
         }
 
-
-        // --- Student CRUD and QR Code Logic ---
-
-        /** Shows the Add/Edit Student modal */
-        window.showAddEditModal = function(docId = null) {
+        // --- Add/Edit Modal Logic ---
+        window.showAddEditModal = function (docId = null) {
+            const modal = document.getElementById('add-edit-modal');
+            const studentIdInput = document.getElementById('studentId');
+            const firstNameInput = document.getElementById('firstName');
+            const lastNameInput = document.getElementById('lastName');
+            const sectionInput = document.getElementById('section');
+            const docIdInput = document.getElementById('doc-id');
             const modalTitle = document.getElementById('modal-title');
-            const form = document.getElementById('student-form');
-            form.reset();
-            document.getElementById('doc-id').value = docId || '';
+
+            studentForm.reset();
+            docIdInput.value = '';
+            modalTitle.textContent = 'Add New Student';
 
             if (docId) {
-                modalTitle.textContent = "Edit Student Details";
-                const student = studentsData.find(s => s.id === docId);
+                const student = studentsData.find(s => s.docId === docId);
                 if (student) {
-                    document.getElementById('studentId').value = student.studentId || '';
-                    document.getElementById('firstName').value = student.firstName || '';
-                    document.getElementById('lastName').value = student.lastName || '';
-                    document.getElementById('section').value = student.section || '';
+                    modalTitle.textContent = `Edit Student: ${student.firstName} ${student.lastName}`;
+                    docIdInput.value = docId;
+                    studentIdInput.value = student.studentId;
+                    firstNameInput.value = student.firstName;
+                    lastNameInput.value = student.lastName;
+                    sectionInput.value = student.section;
                 }
-            } else {
-                modalTitle.textContent = "Add New Student";
             }
-            document.getElementById('add-edit-modal').classList.remove('hidden');
+            modal.classList.remove('hidden');
         }
 
-        /** Handles form submission for adding or editing a student */
-        document.getElementById('student-form').addEventListener('submit', async function(e) {
+        studentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const docId = document.getElementById('doc-id').value;
+            const studentId = document.getElementById('studentId').value.trim();
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const section = document.getElementById('section').value.trim();
 
-            const studentData = {
-                studentId: document.getElementById('studentId').value.trim(),
-                firstName: document.getElementById('firstName').value.trim(),
-                lastName: document.getElementById('lastName').value.trim(),
-                section: document.getElementById('section').value.trim(),
-                // Use a proper timestamp for creation/update
-                updatedAt: new Date().toISOString(),
-            };
-            
-            // Required field validation (in addition to 'required' attribute)
-            if (!studentData.studentId || !studentData.firstName || !studentData.lastName || !studentData.section) {
-                 showMessage("Validation Error", "All fields are required.");
-                 return;
-            }
-
-            // Basic Validation for uniqueness (only for new students, and check if ID changed for edit)
-            const isDuplicate = studentsData.some(s => 
-                s.studentId === studentData.studentId && s.id !== docId
-            );
-            
-            if (isDuplicate) {
-                showMessage("Error", `A student with ID **${studentData.studentId}** already exists.`);
+            if (!studentId || !firstName || !lastName || !section) {
+                showMessageModal("Validation Error", "All fields are required.");
                 return;
             }
-            
-            closeModal('add-edit-modal');
+
+            const studentData = { studentId, firstName, lastName, section };
+            const studentsRef = ref(rtdb, 'students');
+
             try {
                 if (docId) {
-                    // Update existing student: set() to overwrite or update specific fields
-                    const studentRef = ref(rtdb, `students/${docId}`);
-                    // Maintain createdAt if present
-                    studentData.createdAt = studentsData.find(s => s.id === docId)?.createdAt || studentData.updatedAt;
-                    await set(studentRef, studentData); // Set overwrites the entire node
-                    showMessage("Success", `Student **${studentData.firstName} ${studentData.lastName}** updated successfully.`);
+                    // EDIT existing student
+                    await update(ref(rtdb, `students/${docId}`), studentData);
+                    showMessageModal("Success", `${firstName} ${lastName}'s record updated successfully!`);
                 } else {
-                    // Add new student: push() creates a unique ID and set() writes the data
-                    const newStudentRef = push(getStudentsRef());
-                    studentData.createdAt = studentData.updatedAt; // Set creation time
+                    // ADD new student
+                    // Check for duplicate studentId before adding
+                    const isDuplicate = studentsData.some(s => s.studentId === studentId);
+                    if (isDuplicate) {
+                        showMessageModal("Error", `A student with ID ${studentId} already exists.`);
+                        return;
+                    }
+                    const newStudentRef = push(studentsRef);
                     await set(newStudentRef, studentData);
-                    showMessage("Success", `New student **${studentData.firstName} ${studentData.lastName}** added successfully.`);
+                    showMessageModal("Success", `${firstName} ${lastName} added successfully!`);
                 }
+
+                closeModal('add-edit-modal');
             } catch (error) {
-                console.error("Error saving student to RTDB:", error);
-                showMessage("Error", "Failed to save student details. Please check the console.");
+                console.error("Save student error:", error);
+                showMessageModal("Error", `Failed to save student: ${error.message}`);
             }
         });
-        
-        /** Shows confirmation for deletion, then deletes the student record */
-        window.deleteStudentHandler = function(docId, name) {
-            if (!confirm(`Are you sure you want to delete the student **${name}**? This action cannot be undone.`)) {
+
+        // --- Delete Student ---
+        window.deleteStudent = async function (docId, studentName) {
+            if (!confirm(`Are you sure you want to delete the record for ${studentName} (${docId})? This action is permanent.`)) {
                 return;
             }
 
             try {
-                const studentRef = ref(rtdb, `students/${docId}`);
-                remove(studentRef); // Remove the student node from RTDB
-                showMessage("Deleted", `Student **${name}** has been successfully removed.`);
+                await remove(ref(rtdb, `students/${docId}`));
+                showMessageModal("Success", `${studentName} was successfully removed.`);
             } catch (error) {
-                console.error("Error deleting student from RTDB:", error);
-                showMessage("Error", "Failed to delete student. Please check the console.");
+                console.error("Delete student error:", error);
+                showMessageModal("Error", `Failed to delete student: ${error.message}`);
             }
         }
 
-        /** Handles CSV upload (Placeholder - needs proper CSV parsing library) */
-        window.handleCSVUpload = function() {
-            const fileInput = document.getElementById('csv-file-input');
-            if (fileInput.files.length === 0) {
-                showMessage("Upload Error", "Please select a CSV file to upload.");
-                return;
-            }
-            // NOTE: Full CSV parsing logic is omitted for brevity. A library like Papaparse is recommended.
-            showMessage("Not Implemented", "CSV upload parsing logic needs to be implemented. Using a library like Papaparse is highly recommended.");
-            closeModal('csv-upload-modal');
-        }
+        // ------------------------------------------------------------------------------------------------
+        // 4. QR CODE FUNCTIONALITY
+        // ------------------------------------------------------------------------------------------------
 
-        /** Shows the QR Code modal and generates the QR code */
-        window.showQRCodeModal = function(studentId, name) {
-            document.getElementById('qr-student-name').textContent = name;
-            document.getElementById('qr-student-id').textContent = `ID: ${studentId}`;
-            
-            const qrContainer = document.getElementById('qrcode-container');
-            qrContainer.innerHTML = ''; // Clear previous QR code
-
-            // The qrcode.js library must be loaded in the <head>
-            if (typeof QRCode === 'undefined') {
-                showMessage("Error", "QR Code library not loaded.");
+        // --- Single QR Code Generation & Display ---
+        window.showQRCode = function (docId) {
+            const student = studentsData.find(s => s.docId === docId);
+            if (!student) {
+                showMessageModal("Error", "Student record not found.");
                 return;
             }
 
-            // Instantiate QRCode generator
-            new QRCode(qrContainer, {
-                text: studentId, // The QR code content should be the Student ID
+            // Clear previous QR code
+            qrCodeContainer.innerHTML = '';
+            qrStudentNameEl.textContent = `${student.firstName} ${student.lastName}`;
+            qrStudentIdEl.textContent = `ID: ${student.studentId} | Section: ${student.section}`;
+
+            // Generate QR Code
+            currentQR = new QRCode(qrCodeContainer, {
+                text: student.studentId, // Use student ID as the QR data
                 width: 200,
                 height: 200,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
             });
 
             document.getElementById('qr-modal').classList.remove('hidden');
         }
 
-        /** Prints the single QR Code from the modal */
-        window.printSingleQRCode = function() {
-            // This is a simple print, a dedicated print stylesheet would be needed for a clean output
-            showMessage("Note", "Printing in progress. Use a print-friendly CSS setup for a better result.");
+        // --- Single QR Code Printing (uses the currently generated QR in the modal) ---
+        window.printSingleQRCode = function () {
+            if (!currentQR) {
+                showMessageModal("Error", "No QR Code is currently generated for printing.");
+                return;
+            }
+
+            const cardHtml = `
+                <div class="qr-print-page">
+                    <div class="qr-card-print">
+                        <p class="text-xs text-gray-700 font-semibold mb-1">QR Attend System</p>
+                        ${qrCodeContainer.innerHTML}
+                        <p class="student-id">${qrStudentIdEl.textContent.split('|')[0].trim()}</p>
+                        <p class="text-xs text-gray-600">${qrStudentNameEl.textContent}</p>
+                        <p class="text-xs text-gray-500">${qrStudentIdEl.textContent.split('|')[1].trim()}</p>
+                    </div>
+                </div>
+            `;
+            qrPrintArea.innerHTML = cardHtml;
             window.print();
         }
 
-        /** Prints all QR Codes (Placeholder) */
-        window.printBatchQRCodes = function() {
-            showMessage("Not Implemented", "Batch QR code generation and printing requires a custom print-friendly layout generation, which is omitted in this basic example.");
+        // --- Batch QR Code Printing ---
+        window.printBatchQRCodes = function () {
+            if (studentsData.length === 0) {
+                showMessageModal("Info", "No student data available to print QR codes.");
+                return;
+            }
+
+            const cardsPerPage = 20; // Number of cards per print page (adjust based on layout)
+            let printContent = '';
+            let pageContent = '';
+            let studentsProcessed = 0;
+
+            studentsData.forEach(student => {
+                // Create a temporary container for QR code generation
+                const tempDiv = document.createElement('div');
+                const qr = new QRCode(tempDiv, {
+                    text: student.studentId,
+                    width: 120,
+                    height: 120,
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                // Wait a moment for QR code to render (necessary for library)
+                // This is a common hack for sync QR libraries. In a real app, use async or a better library.
+                setTimeout(() => {
+                    const qrImg = tempDiv.querySelector('img').outerHTML;
+                    const studentInfo = `ID: ${student.studentId}`;
+                    const studentSection = `Section: ${student.section}`;
+
+                    pageContent += `
+                        <div class="qr-card-print">
+                            <p class="text-xs text-gray-700 font-semibold mb-1">QR Attend System</p>
+                            ${qrImg}
+                            <p class="student-id">${studentInfo}</p>
+                            <p class="text-xs text-gray-600">${student.firstName} ${student.lastName}</p>
+                            <p class="text-xs text-gray-500">${studentSection}</p>
+                        </div>
+                    `;
+
+                    studentsProcessed++;
+                    
+                    if (studentsProcessed % cardsPerPage === 0 || studentsProcessed === studentsData.length) {
+                        printContent += `<div class="qr-print-page">${pageContent}</div>`;
+                        pageContent = '';
+                    }
+
+                    if (studentsProcessed === studentsData.length) {
+                        qrPrintArea.innerHTML = printContent;
+                        window.print();
+                        qrPrintArea.innerHTML = ''; // Clear after printing
+                        showMessageModal("Success", `Prepared and printed QR codes for ${studentsData.length} students.`);
+                    }
+                }, 10); // Small delay to allow canvas/image creation
+            });
+            showMessageModal("Info", "Preparing batch QR codes for printing... (May take a moment)");
         }
 
-        /** Placeholder for View Attendance History */
-        window.viewAttendanceHistory = function(docId) {
-            const student = studentsData.find(s => s.id === docId);
-            const firstName = student.firstName || '';
-            const lastName = student.lastName || '';
-            const studentId = student.studentId || '';
-            showMessage("Feature Placeholder", `Viewing attendance history for **${firstName} ${lastName}** (ID: ${studentId}). This feature would require a separate records database.`);
-        }
-        
-        // ------------------------------------------------------------------------------------------------
-        // Initialize the app on load
-        // ------------------------------------------------------------------------------------------------
-        initializeFirebase();
 
+        // ------------------------------------------------------------------------------------------------
+        // 5. CSV BULK UPLOAD FUNCTIONALITY
+        // ------------------------------------------------------------------------------------------------
+        window.handleCSVUpload = function () {
+            const fileInput = document.getElementById('csv-file-input');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showMessageModal("Error", "Please select a CSV file to upload.");
+                return;
+            }
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async function (results) {
+                    const uploadData = results.data;
+                    let successCount = 0;
+                    let errorCount = 0;
+                    let errorMessage = '';
+
+                    if (uploadData.length === 0) {
+                        showMessageModal("Error", "The CSV file is empty or missing required headers: studentId, firstName, lastName, section.");
+                        return;
+                    }
+
+                    for (const student of uploadData) {
+                        const { studentId, firstName, lastName, section } = student;
+
+                        // Basic Validation
+                        if (!studentId || !firstName || !lastName || !section) {
+                            errorCount++;
+                            errorMessage += `Skipped row: Missing data for ID: ${studentId || 'N/A'}.<br>`;
+                            continue;
+                        }
+
+                        // Check for duplicate Student ID in existing data
+                        const isDuplicate = studentsData.some(s => s.studentId === studentId);
+                        if (isDuplicate) {
+                            errorCount++;
+                            errorMessage += `Skipped: Duplicate Student ID ${studentId}.<br>`;
+                            continue;
+                        }
+
+                        try {
+                            // Push new student to the database
+                            const newStudentRef = push(ref(rtdb, 'students'));
+                            await set(newStudentRef, {
+                                studentId: studentId.trim(),
+                                firstName: firstName.trim(),
+                                lastName: lastName.trim(),
+                                section: section.trim()
+                            });
+                            successCount++;
+                        } catch (error) {
+                            errorCount++;
+                            errorMessage += `Failed to upload ID ${studentId}: ${error.message}<br>`;
+                        }
+                    }
+
+                    closeModal('csv-upload-modal');
+                    fileInput.value = null; // Clear file input
+                    let resultMessage = `Successfully uploaded ${successCount} students.`;
+                    if (errorCount > 0) {
+                        resultMessage += ` ${errorCount} students failed to upload due to errors (e.g., duplicates, missing fields).`;
+                    }
+                    showMessageModal("Upload Results", resultMessage);
+                    // The onValue listener will automatically re-render the table
+                },
+                error: function (error) {
+                    closeModal('csv-upload-modal');
+                    showMessageModal("CSV Parse Error", `Failed to parse CSV file: ${error.message}`);
+                }
+            });
+        }
+
+        // ------------------------------------------------------------------------------------------------
+        // 6. INITIAL LOAD AND UI
+        // ------------------------------------------------------------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+            // Re-render icons for static content
+            lucide.createIcons();
+            // Auth State Listener handles data loading
+        });
     </script>
-
 </body>
+
 </html>
