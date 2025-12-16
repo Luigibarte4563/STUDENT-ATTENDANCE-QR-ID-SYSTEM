@@ -3,6 +3,8 @@
 ## Overview
 The **QR Attendance System** is a complete platform for managing school attendance via QR codes. It supports **Admins, Teachers, and Students** with real-time tracking, analytics, and reporting.
 
+**Access the live system here:** [QR Attendance System](https://luigibarte4563.github.io/STUDENT-ATTENDANCE-QR-ID-SYSTEM/)
+
 ---
 
 ## Admin Dashboard (Full Control)
@@ -70,3 +72,10 @@ Track personal attendance and QR codes.
 
 ## License
 Proprietary. For educational institutions only. No redistribution or commercial use without permission.
+
+---
+
+## Created By
+[Luigi Barte](https://github.com/Luigibarte4563)  
+For educational purposes.  
+Contact: luigibarte@example.com
